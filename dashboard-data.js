@@ -1,5 +1,14 @@
 /* Shared dashboard storage — commits to this repository instead of the browser.
  *
+ * HOW WRITES REACH GITHUB
+ * Through a small relay (an AWS Lambda; source in _dev/aws/index.mjs). The relay holds
+ * the one GitHub token, the site owner controls it, and facilitators never see a token
+ * exist. A facilitator identifies to the relay with a personal key (display name plus a
+ * passcode the owner issued) kept in their own browser's localStorage. Revoking a
+ * facilitator is deleting one line on the relay. This replaced a design where each
+ * facilitator held their own GitHub token — which could not work on a personal-account
+ * repository, since fine-grained tokens can only target repos you own.
+ *
  * WHY THIS EXISTS
  * Each dashboard previously saved in two places, neither of which shared anything:
  *   1. window.storage — the Claude artifacts API. It does not exist on GitHub Pages,
@@ -13,10 +22,11 @@
  * everyone rather than to one browser.
  *
  * WHAT IT DOES NOT DO
- * A public page cannot hold a write token — view-source defeats it. Each facilitator
- * supplies their own fine-grained PAT, kept in their own browser's localStorage and
- * never in this file. Without one the dashboard is readable but not saveable, which
- * is the correct default for a public URL.
+ * A public page cannot hold a write token — view-source defeats it. That is why the
+ * GitHub token lives on the relay and not here. This file holds nothing secret; the
+ * facilitator key in localStorage only proves who is saving, and can only be used to
+ * save. Without one the dashboard is readable but not saveable, which is the correct
+ * default for a public URL.
  *
  * Attendance data is not saved here and must not be: participant chips, the meeting
  * leaderboard and facilitator hours are non-editable by design, and every derived
@@ -26,24 +36,39 @@
 (function () {
   'use strict';
 
-  var REPO = 'PWCodingLLC/MISMO-Initiative-Hub';
-  var BRANCH = 'main';
-  var TOKEN_KEY = 'mismo-hub-github-token';
+  /* The relay's function URL, e.g. https://abc123.lambda-url.us-east-1.on.aws
+   * No trailing slash. Empty until the Lambda exists; saving explains that if so. */
+  var RELAY_URL = '';
+
+  var KEY_KEY = 'mismo-hub-facilitator-key';   // localStorage: "Display Name:passcode"
 
   var cfg = { id: null, path: null };
   var currentSha = null;       // blob SHA of the file as we last read it; drives conflict detection
   var loadedRemote = false;
   var fileExisted = false;     // distinguishes 'no file yet' (create) from 'file read, SHA unknown' (refuse)
 
-  /* ---------- token ---------- */
+  /* ---------- facilitator key ---------- */
 
-  function getToken() {
-    try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
+  function getKey() {
+    try { return localStorage.getItem(KEY_KEY) || ''; } catch (e) { return ''; }
   }
-  function setToken(v) {
-    try { v ? localStorage.setItem(TOKEN_KEY, v) : localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+  function setKey(v) {
+    try { v ? localStorage.setItem(KEY_KEY, v) : localStorage.removeItem(KEY_KEY); } catch (e) {}
   }
-  function hasToken() { return !!getToken(); }
+  function hasKey() { return !!getKey(); }
+  function keyName() { var k = getKey(); return k.indexOf(':') > 0 ? k.slice(0, k.indexOf(':')) : ''; }
+
+  function relay(path, opts) {
+    opts = opts || {};
+    var headers = { 'X-Facilitator-Key': getKey() };
+    if (opts.body) headers['Content-Type'] = 'application/json';
+    return fetch(RELAY_URL + path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      cache: 'no-store'
+    });
+  }
 
   /* ---------- reading ---------- */
 
@@ -51,13 +76,6 @@
    * write so GitHub can reject the save if anyone else committed in between. It must
    * never be refreshed at save time — fetching the current SHA just before writing makes
    * every write match and defeats the lock entirely, which is the bug this replaced. */
-
-  function decodeBase64Utf8(b64) {
-    var bin = atob(b64.replace(/\n/g, ''));
-    var bytes = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new TextDecoder().decode(bytes);
-  }
 
   /* git blob SHA = sha1("blob " + byteLength + "\0" + bytes). Computed for viewers who read
    * the file without a token, so that adding a token later and saving still holds the lock. */
@@ -71,18 +89,15 @@
     return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
   }
 
-  /* Editors read through the API: always fresh (no Pages deploy lag, no CDN cache) and it
-   * returns the SHA directly. Falls through to the plain read if the token is rejected, so
-   * a bad token degrades to viewing rather than breaking the page. */
-  async function loadViaApi() {
-    var res = await fetch('https://api.github.com/repos/' + REPO + '/contents/' + cfg.path + '?ref=' + BRANCH, {
-      headers: { Authorization: 'Bearer ' + getToken(), Accept: 'application/vnd.github+json' },
-      cache: 'no-store'
-    });
-    if (res.status === 404) return { data: null, sha: null };
+  /* Editors read through the relay: always fresh (no Pages deploy lag, no CDN cache) and
+   * it returns the SHA directly. Falls through to the plain read if the relay is unset or
+   * the key is rejected, so a bad key degrades to viewing rather than breaking the page. */
+  async function loadViaRelay() {
+    if (!RELAY_URL) throw new Error('NO_RELAY');
+    var res = await relay('/data/' + cfg.id);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var body = await res.json();
-    return { data: JSON.parse(decodeBase64Utf8(body.content)), sha: body.sha };
+    return { data: body.data, sha: body.sha };
   }
 
   /* Viewers read the deployed file from the same origin: no token, no API quota. */
@@ -97,9 +112,9 @@
   async function load() {
     var result = null;
     try {
-      if (hasToken()) {
-        try { result = await loadViaApi(); }
-        catch (apiErr) { console.warn('API read failed, falling back to the deployed file:', apiErr); }
+      if (hasKey()) {
+        try { result = await loadViaRelay(); }
+        catch (relayErr) { console.warn('Relay read failed, falling back to the deployed file:', relayErr); }
       }
       if (!result) result = await loadViaPages();
       currentSha = result.sha;
@@ -118,17 +133,9 @@
 
   /* ---------- writing ---------- */
 
-  function encodeContent(obj) {
-    // btoa is byte-oriented; org names and notes contain non-ASCII, so encode as UTF-8 first.
-    var json = JSON.stringify(obj, null, 2) + '\n';
-    var bytes = new TextEncoder().encode(json);
-    var bin = '';
-    bytes.forEach(function (b) { bin += String.fromCharCode(b); });
-    return btoa(bin);
-  }
-
   async function save(snapshot) {
-    if (!hasToken()) return { ok: false, reason: 'NO_TOKEN' };
+    if (!hasKey()) return { ok: false, reason: 'NO_KEY' };
+    if (!RELAY_URL) return { ok: false, reason: 'NO_RELAY' };
     if (!loadedRemote) return { ok: false, reason: 'NOT_LOADED' };
     // A file was read but no SHA could be computed for it — crypto.subtle is only available
     // on secure origins. Saving without the lock would be a blind overwrite, so refuse.
@@ -136,40 +143,28 @@
 
     var payload = {
       dashboard: cfg.id,
-      savedAt: new Date().toISOString(),
       rosterData: snapshot.rosterData,
       laneData: snapshot.laneData,
       generic: snapshot.generic
     };
 
     try {
-      var res = await fetch('https://api.github.com/repos/' + REPO + '/contents/' + cfg.path, {
-        method: 'PUT',
-        headers: {
-          Authorization: 'Bearer ' + getToken(),
-          Accept: 'application/vnd.github+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: 'Update ' + cfg.id.toUpperCase() + ' dashboard data',
-          content: encodeContent(payload),
-          branch: BRANCH,
-          sha: currentSha || undefined
-        })
-      });
+      // currentSha is the SHA of the version this page READ. The relay forwards it as-is
+      // and GitHub refuses the write if it is stale. Neither side may refresh it here.
+      var res = await relay('/data/' + cfg.id, { method: 'PUT', body: { content: payload, sha: currentSha } });
+      var body = null;
+      try { body = await res.json(); } catch (e) {}
 
-      if (res.status === 401) return { ok: false, reason: 'TOKEN_BAD' };
-      if (res.status === 403) return { ok: false, reason: 'NO_WRITE' };
-      // 409: the SHA we read is no longer current — someone committed since. 422 with no
-      // SHA: we read a 404 and someone created the file since. Both mean the same thing:
-      // overwriting now would erase their work silently, which is the failure this replaces.
-      if (res.status === 409 || (res.status === 422 && !currentSha)) return { ok: false, reason: 'CONFLICT' };
+      if (res.status === 401) return { ok: false, reason: 'KEY_BAD' };
+      if (res.status === 403) return { ok: false, reason: 'ORIGIN' };
+      if (res.status === 409) return { ok: false, reason: 'CONFLICT' };
       if (res.status === 422) return { ok: false, reason: 'REJECTED' };
+      if (res.status === 502) return { ok: false, reason: (body && body.error === 'TOKEN') ? 'RELAY_TOKEN' : 'RELAY' };
       if (!res.ok) return { ok: false, reason: 'HTTP_' + res.status };
 
-      var body = await res.json();
-      currentSha = body.content && body.content.sha;   // this page now holds the newest version
-      return { ok: true };
+      currentSha = body && body.sha;   // this page now holds the newest version
+      fileExisted = true;
+      return { ok: true, savedBy: body && body.savedBy };
     } catch (err) {
       return { ok: false, reason: 'NETWORK' };
     }
@@ -178,15 +173,19 @@
   /* Written in the interface's voice: what happened, and what to do about it. */
   function explain(reason) {
     switch (reason) {
-      case 'NO_TOKEN':   return 'Add a GitHub token to save. Your edits stay on this page until you do.';
-      case 'TOKEN_BAD':  return 'That token was rejected. It may have expired or been revoked — add a new one.';
-      case 'NO_WRITE':   return 'That token can read this repository but not write to it. It needs Contents: Read and write.';
-      case 'CONFLICT':   return 'Someone else saved while you were editing. Reload to get their changes, then redo yours.';
-      case 'REJECTED':   return 'GitHub rejected the save as malformed. Reload and try again; if it repeats, the data file may need repair.';
-      case 'NO_LOCK':    return 'This page could not verify it has the latest version, so saving is blocked. Open the dashboard over https and try again.';
-      case 'NOT_LOADED': return 'The saved data could not be read, so saving is blocked to avoid overwriting it. Reload and try again.';
-      case 'NETWORK':    return 'Could not reach GitHub. Check your connection and try again.';
-      default:           return 'Save failed. Your edits are still on this page.';
+      case 'NO_TOKEN':    // older name used by the dashboards' Save handler
+      case 'NO_KEY':      return 'Add your facilitator key to save. Your edits stay on this page until you do.';
+      case 'KEY_BAD':     return 'That facilitator key was not recognised. Check the name and passcode, or ask the site owner for a new one.';
+      case 'NO_RELAY':    return 'Saving is not connected yet — the site owner still needs to set the relay address in dashboard-data.js. Your edits are kept on this page.';
+      case 'ORIGIN':      return 'This copy of the dashboard is not on the official site, so it cannot save. Use the published link.';
+      case 'CONFLICT':    return 'Someone else saved while you were editing. Reload to get their changes, then redo yours.';
+      case 'REJECTED':    return 'GitHub rejected the save as malformed. Reload and try again; if it repeats, the data file may need repair.';
+      case 'RELAY_TOKEN': return 'The save relay could not reach GitHub — its token was rejected. This is for the site owner to fix, not you. Your edits are kept on this page.';
+      case 'RELAY':       return 'The save relay returned an error. Try again in a moment; if it persists, tell the site owner. Your edits are kept on this page.';
+      case 'NO_LOCK':     return 'This page could not verify it has the latest version, so saving is blocked. Open the dashboard over https and try again.';
+      case 'NOT_LOADED':  return 'The saved data could not be read, so saving is blocked to avoid overwriting it. Reload and try again.';
+      case 'NETWORK':     return 'Could not reach the save relay. Check your connection and try again.';
+      default:            return 'Save failed. Your edits are still on this page.';
     }
   }
 
@@ -217,18 +216,22 @@
     return tpl.innerHTML;
   }
 
-  /* ---------- token dialog ---------- */
+  /* ---------- facilitator key dialog ---------- */
 
-  function promptForToken() {
-    var existing = hasToken();
-    var msg = existing
-      ? 'Replace your GitHub token.\n\nLeave this blank and press OK to remove the stored token instead.'
-      : 'Paste a GitHub personal access token to save changes.\n\n'
-        + 'Fine-grained token, this repository only, Contents: Read and write.\n'
-        + 'It is stored in this browser only and is never committed.';
-    var v = window.prompt(msg, '');
-    if (v === null) return false;                 // cancelled
-    setToken(v.trim());
+  function promptForKey() {
+    var existing = hasKey();
+    var name = window.prompt(existing
+      ? 'Replace your facilitator key.\n\nYour display name, exactly as the site owner set it up:'
+      : 'To save changes you need a facilitator key from the site owner.\n\nYour display name, exactly as they set it up:',
+      existing ? keyName() : '');
+    if (name === null) return false;
+    name = name.trim();
+    if (!name) { setKey(''); return true; }          // blank name clears the stored key
+    var pass = window.prompt('And your passcode:', '');
+    if (pass === null) return false;
+    pass = pass.trim();
+    if (!pass) { setKey(''); return true; }
+    setKey(name + ':' + pass);
     return true;
   }
 
@@ -240,9 +243,13 @@
     load: load,
     save: save,
     explain: explain,
-    hasToken: hasToken,
+    hasKey: hasKey,
+    keyName: keyName,
+    promptForKey: promptForKey,
     sanitizeHtml: sanitizeHtml,
-    promptForToken: promptForToken,
+    // Older names, kept so the four dashboards and the template need no edits for this.
+    hasToken: hasKey,
+    promptForToken: promptForKey,
     dataPath: function () { return cfg.path; }
   };
 })();

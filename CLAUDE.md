@@ -23,7 +23,8 @@ edits are committed to `data/<id>.json` through the GitHub contents API. See
 | `index.html` | The hub homepage — domain tiles, tabs, links out to each dashboard |
 | `mcd-dashboard.html`, `lbds-dashboard.html`, `ccs-dashboard.html`, `tpa-dashboard.html` | The four live, real workgroup dashboards |
 | `calendar.html` | Meeting calendar with a workgroup filter dropdown |
-| `dashboard-data.js` | Shared git-backed storage used by every dashboard: reads the committed data file, commits saves, holds the conflict lock, sanitises shared HTML. Read its header comment before touching persistence. |
+| `dashboard-data.js` | Shared git-backed storage used by every dashboard: reads the committed data file, sends saves to the relay, holds the conflict lock, sanitises shared HTML. Read its header comment before touching persistence. |
+| `_dev/aws/index.mjs`, `_dev/aws/SETUP.md` | The save relay (Lambda) and how to stand it up. |
 | `data/<id>.json` | One committed data file per dashboard, created by the first save. Absent until then; a missing file means "use the built-in defaults". |
 | `_dev/dashboard-template.html` | Starting point for building a **new** dashboard — see below |
 | `_dev/validate_nesting.py` | HTML nesting validator used before every deploy |
@@ -103,9 +104,20 @@ comments, and it's the same tradeoff already live on all four real dashboards
     writing makes every write match and the lock never fires — that exact bug
     shipped in a first draft and was caught in review. If someone else
     committed since load, GitHub answers 409 and the user is told to reload.
-  - Editors (token present) read via the API: always fresh, and it returns the
-    SHA. Viewers read the deployed file from the same origin (no token, no API
-    quota) and the blob SHA is computed client-side from the bytes.
+  - **Writes go through a relay** (an AWS Lambda; source and setup in
+    `_dev/aws/`). It holds the one GitHub token. Facilitators identify with a
+    personal key (`Display Name:passcode`, in localStorage as
+    `mismo-hub-facilitator-key`) and never see a token. The relay forwards the
+    page's SHA untouched; it must never fetch a fresh one. `RELAY_URL` at the
+    top of `dashboard-data.js` is the function URL — not a secret, committed.
+  - **Why a relay and not per-person tokens:** `PWCodingLLC` is a personal
+    account, and fine-grained tokens can only target repos you own or an org
+    you belong to. A collaborator on a personal repo cannot create one. The
+    per-person design shipped briefly and could only ever have worked for the
+    owner.
+  - Editors (key present) read via the relay: always fresh, and it returns the
+    SHA. Viewers read the deployed file from the same origin (no key, no relay
+    call) and the blob SHA is computed client-side from the bytes.
   - Editable-field HTML is stored as `innerHTML` and now arrives from a shared
     file, so it is **sanitised on apply** (`MismoStore.sanitizeHtml`). Without
     that, anyone with write access could commit markup that runs in every
@@ -218,6 +230,8 @@ personal access token in a plaintext file:
 - **From Claude Code:** run `gh auth login` once per environment, or connect
   GitHub through Claude Code's native GitHub integration (`/web-setup` from
   the CLI, or via claude.ai settings for cloud/web sessions).
+- **The dashboards' own token lives only on the Lambda** (`GITHUB_TOKEN`).
+  Rotate it there. It never belongs in this repo, a document, or a chat.
 - **A prior personal access token was used** during the Claude.ai chat-based
   sessions that built this project (visible repeatedly in that conversation
   history, and already flagged there for rotation). Don't reuse it — if
