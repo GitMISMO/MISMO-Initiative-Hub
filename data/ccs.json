@@ -1,0 +1,287 @@
+{
+  "dashboard": "ccs",
+  "savedAt": "2026-09-14T22:17:37.303Z",
+  "rosterData": [
+    {
+      "type": "AVM Provider",
+      "org": "Clear Capital",
+      "status": "implemented",
+      "primaryContact": "Erica Vigen",
+      "title": "Workgroup Leader, AVM DWG",
+      "email": "",
+      "participants": "Erica Vigen (16/31)",
+      "notes": "Recognized by MISMO for implementation leadership, April 2026.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "AVM Provider",
+      "org": "Cotality",
+      "status": "implemented",
+      "primaryContact": "Craig Zielazny",
+      "title": "",
+      "email": "",
+      "participants": "Craig Zielazny (11/31)",
+      "notes": "Recognized for implementation leadership, April 2026. Listed as \"CoreLogic\" in the original stakeholder tracker — its name before rebranding to Cotality; see Manifest Check.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "AVM Provider",
+      "org": "Veros Real Estate Solutions",
+      "status": "implemented",
+      "primaryContact": "Reena Agrawal",
+      "title": "Vice Chair, AVM DWG",
+      "email": "",
+      "participants": "Reena Agrawal (30/31), Eric Fox (23/31)",
+      "notes": "Implemented the Common Confidence Score in its flagship AVM, VeroVALUE, March 2026.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "AVM Provider",
+      "org": "Consolidated Analytics",
+      "status": "implemented",
+      "primaryContact": "Darlene Swain",
+      "title": "",
+      "email": "",
+      "participants": "No one met the 1/3 attendance threshold — closest: Darlene Swain (9/31)",
+      "notes": "Implemented the Common Confidence Score in its AVM, February 2026, though the tracked contact has meeting attendance below the active threshold.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "AVM Provider",
+      "org": "Quantarium",
+      "status": "implemented",
+      "primaryContact": "Malcolm Cannon",
+      "title": "",
+      "email": "",
+      "participants": "Malcolm Cannon (17/31)",
+      "notes": "Recognized for implementation leadership, April 2026 — not named in the original stakeholder table, added from real meeting-tracker engagement plus the news release.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "AVM Provider",
+      "org": "Zillow",
+      "status": "pilot-planned",
+      "primaryContact": "Andy Krause",
+      "title": "",
+      "email": "",
+      "participants": "Andy Krause (25/31)",
+      "notes": "Zillow Home Loans previously sponsored the AVM DWG but no longer does; Andy Krause remains highly active. Zillow is not named among the 6 AVM providers recognized for confirmed implementation.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "AVM Provider",
+      "org": "Stewart",
+      "status": "not-planned",
+      "primaryContact": "",
+      "title": "",
+      "email": "",
+      "participants": "No one met the 1/3 attendance threshold — closest: Andrew Komaromi (0/31)",
+      "notes": "No implementation confirmed in source.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "AVM Provider",
+      "org": "House Canary",
+      "status": "not-planned",
+      "primaryContact": "",
+      "title": "",
+      "email": "",
+      "participants": "No roster data on file",
+      "notes": "No implementation confirmed in source.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "GSE",
+      "org": "Fannie Mae",
+      "status": "not-planned",
+      "primaryContact": "Lyle Radke",
+      "title": "",
+      "email": "",
+      "participants": "No one met the 1/3 attendance threshold — closest: Lyle Radke (0/31)",
+      "notes": "Listed as a stakeholder; no active meeting engagement on file.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "GSE",
+      "org": "Freddie Mac",
+      "status": "not-planned",
+      "primaryContact": "",
+      "title": "",
+      "email": "",
+      "participants": "No one met the 1/3 attendance threshold — closest: Brian Johnson (0/31)",
+      "notes": "Listed as a stakeholder; no active meeting engagement on file.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Mortgage Originator",
+      "org": "U.S. Bank",
+      "status": "impl-planned",
+      "primaryContact": "Matt Custer",
+      "title": "",
+      "email": "",
+      "participants": "Matt Custer (12/31)",
+      "notes": "Attending more regularly and actively engaged in the group as of August 2025.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Mortgage Originator",
+      "org": "JPMorgan Chase",
+      "status": "impl-planned",
+      "primaryContact": "Lisa Morrison",
+      "title": "",
+      "email": "",
+      "participants": "Lisa Morrison (23/31) — see Manifest Check re: Co-Chair Carla Nott",
+      "notes": "Call held February 2026 with Lisa Morrison and Jarrett Scarpiello to discuss Common Confidence Score implementation.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Mortgage Originator",
+      "org": "Truist",
+      "status": "not-planned",
+      "primaryContact": "Sara Campione",
+      "title": "",
+      "email": "",
+      "participants": "No roster data on file",
+      "notes": "Outreach contact identified; has expressed interest but has not yet attended.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Mortgage Originator",
+      "org": "Columbia Bank (Umpqua)",
+      "status": "not-planned",
+      "primaryContact": "Katherine Owen",
+      "title": "",
+      "email": "",
+      "participants": "No one met the 1/3 attendance threshold — closest: Katherine Owen (2/31)",
+      "notes": "Attended a couple of meetings; attendance has been inconsistent.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Mortgage Originator",
+      "org": "United Wholesale Mortgage",
+      "status": "not-planned",
+      "primaryContact": "",
+      "title": "",
+      "email": "",
+      "participants": "No roster data on file",
+      "notes": "Outreach in progress to identify the right internal contact (candidates: Kim Brown, Howard Ellison, Dom Virgilio).",
+      "roadblocks": "",
+      "targetDate": ""
+    }
+  ],
+  "laneData": {
+    "general": {
+      "goals": [
+        "Drive consistent Common Confidence Score adoption across AVM providers, GSEs, and lenders together — adoption depends on lender demand as much as AVM provider implementation"
+      ],
+      "roadblocks": [],
+      "actions": []
+    },
+    "avmprovider": {
+      "goals": [
+        "Implement the Common Confidence Score in production AVM outputs"
+      ],
+      "roadblocks": [],
+      "actions": [
+        {
+          "task": "Complete systematic rollout of Common Confidence Score across valuation products",
+          "owner": "Anand Dwivedi (ICE)",
+          "status": "in-progress",
+          "label": "In Progress"
+        },
+        {
+          "task": "Confirm Common Confidence Score implementation in flagship AVM",
+          "owner": "Reena Agrawal (Veros)",
+          "status": "complete",
+          "label": "Complete"
+        }
+      ]
+    },
+    "gse": {
+      "goals": [],
+      "roadblocks": [],
+      "actions": []
+    },
+    "lender": {
+      "goals": [
+        "Drive widespread adoption via lender demand — especially loan aggregators who can require the Common Confidence Score on purchased loans"
+      ],
+      "roadblocks": [
+        "Adoption depends on lender demand, which has not yet reached critical mass among loan aggregators"
+      ],
+      "actions": [
+        {
+          "task": "Discuss Common Confidence Score implementation with JPMorgan Chase",
+          "owner": "Lisa Morrison",
+          "status": "in-progress",
+          "label": "In Progress"
+        }
+      ]
+    }
+  },
+  "generic": {
+    "editable": {
+      "body::span::0": "Automated Valuation Model DWG",
+      "body::span::1": "Originations · Valuation · Workgroup Dashboard",
+      "body::h1::2": "Common Confidence Score<span class=\"segment-tag\" contenteditable=\"false\">(CCS)</span>",
+      "body::span::3": "Kellie Stoll",
+      "body::span::4": "MISMO",
+      "body::span::5": "Carla Nott",
+      "body::span::6": "JPMorgan Chase",
+      "body::span::7": "Erica Vigen",
+      "body::span::8": "Clear Capital",
+      "body::span::9": "Reena Agrawal",
+      "body::span::10": "Veros Real Estate Solutions",
+      "meeting-schedule::span::0": "Automated Valuation Model DWG",
+      "meeting-schedule::span::1": "Weekly (Mondays)",
+      "meeting-schedule::span::2": "4–5 PM ET",
+      "overview::p::0": "The Common Confidence Score is a standardized probability — the estimated likelihood that an AVM value falls within ±10% of a property's market value as of the AVM's effective date. Today, confidence scores differ by provider in both scale and meaning (one might say \"92,\" another \"B,\" another \"High\" for the same property) — the Common Confidence Score gives every provider one shared scale, expressed as a percentage from 0–100%.",
+      "overview::p::1": "Providers can keep offering their own proprietary scores or Forecast Standard Deviation (FSD) alongside it — the Common Confidence Score is meant to sit next to those, not replace them, while being far easier to interpret than FSD's underlying statistics.",
+      "why-card::li::0": "<strong>Inconsistent scores make AVMs hard to compare.</strong> Three providers can score the same property \"92,\" \"B,\" and \"High\" — there's no way to line those up against each other or set a consistent risk threshold across vendors.",
+      "why-card::li::1": "<strong>The accurate alternative is too complex to adopt.</strong> Forecast Standard Deviation (FSD) is statistically sound and already used by many providers, but its complexity has limited how widely lenders actually use it.",
+      "why-card::li::2": "<strong>A 2024 federal rule raised the stakes.</strong> The Dodd-Frank AVM quality control rule directs lenders to ensure \"a high level of confidence\" in AVM estimates — without a shared scale, that's difficult to demonstrate consistently across providers.",
+      "overview::span::5": "AVM providers, testers, and lenders, in response to the federal AVM quality control rule",
+      "overview::span::6": "~August 2024 — the workgroup met roughly 40 times over the following year before its first release",
+      "overview::span::7": "To create one shared, easy-to-interpret confidence measure across AVM providers, ahead of the Oct. 1, 2025 effective date of federal AVM quality control standards.",
+      "overview::span::8": "⚑ Published — though the federal rule it responds to is not currently being enforced",
+      "overview::span::9": "$22",
+      "deliverables-card::td::0": "Common Confidence Score – Part B <span class=\"mono\" style=\"font-size:10px; color:var(--ink-soft);\">WR2024_18</span>",
+      "deliverables-card::td::1": "Common Confidence Score – Part A <span class=\"mono\" style=\"font-size:10px; color:var(--ink-soft);\">WR2024_18</span>",
+      "stakeholders::td::0": "Standardized way to communicate valuation confidence, marketed with assurance of following MISMO-prescribed standards",
+      "stakeholders::td::1": "Supports compliance with the interagency rule for Quality Control Standards for AVMs",
+      "stakeholders::td::2": "Can evaluate risk more effectively, knowing AVMs across providers can be assessed through the same lens"
+    },
+    "selects": {
+      "deliverables-card::select::0": "done",
+      "deliverables-card::select::1": "done",
+      "stakeholders::select::0": "AVM Provider",
+      "stakeholders::select::1": "star",
+      "stakeholders::select::2": "Implementer",
+      "stakeholders::select::3": "GSE",
+      "stakeholders::select::4": "line",
+      "stakeholders::select::5": "Driver",
+      "stakeholders::select::6": "Mortgage Originator",
+      "stakeholders::select::7": "star",
+      "stakeholders::select::8": "Driver",
+      "addCompanyPopover::select::0": "AVM Provider"
+    },
+    "dates": {
+      "deliverables-card::input::0": "2025-08-28",
+      "deliverables-card::input::1": "2025-10-31"
+    }
+  }
+}
