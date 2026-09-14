@@ -77,10 +77,28 @@
 
   .wrap{max-width:1455px; margin:0 auto; padding:28px 24px 70px;}
 
-  .hub-tabs{display:inline-flex; background:var(--paper); border-radius:999px; padding:4px; gap:2px; margin-bottom:20px;}
-  .hub-tab{background:none; border:none; padding:9px 18px; font-family:'Libre Franklin',sans-serif; font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer; border-radius:999px; white-space:nowrap;}
-  .hub-tab.active{background:var(--card); color:var(--ink); box-shadow:0 1px 3px rgba(16,27,51,.12);}
-  .hub-tab:hover:not(.active){color:var(--ink);}
+  /* Top-level section switch. Sized to read as primary navigation rather than a
+     filter control - these two are the main division of the site, so they carry
+     more weight than the domain tiles beneath them. */
+  .hub-tabs{display:flex; gap:10px; margin-bottom:22px; border-bottom:2px solid var(--line); padding-bottom:0;}
+  .hub-tab{
+    background:none; border:none; cursor:pointer; white-space:nowrap;
+    font-family:'Libre Franklin',sans-serif; font-size:17px; font-weight:700;
+    color:var(--ink-soft); padding:12px 22px 14px;
+    border-bottom:3px solid transparent; margin-bottom:-2px;
+    display:flex; align-items:center; gap:9px;
+  }
+  .hub-tab:hover:not(.active){color:var(--ink); background:var(--paper); border-radius:8px 8px 0 0;}
+  .hub-tab.active{color:var(--brand-text); border-bottom-color:var(--brand);}
+  .hub-tab .tab-count{
+    font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;
+    background:var(--line); color:var(--ink-soft); padding:2px 9px; border-radius:999px;
+  }
+  .hub-tab.active .tab-count{background:var(--brand); color:#fff;}
+  @media (max-width:620px){
+    .hub-tabs{gap:2px;}
+    .hub-tab{font-size:15px; padding:11px 13px 13px;}
+  }
   .hub-tab-placeholder{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:70px 24px; text-align:center; color:var(--ink-soft); font-size:13.5px;}
   .hub-tab-placeholder strong{display:block; font-family:'Libre Franklin',sans-serif; font-size:17px; color:var(--ink); margin-bottom:8px; font-weight:700;}
 
@@ -237,10 +255,8 @@
 
 <div class="wrap">
   <div class="hub-tabs" id="hubTabs">
-    <button type="button" class="hub-tab active" data-tab="Initiatives">Initiatives</button>
-    <button type="button" class="hub-tab" data-tab="Reference Model">Reference Model</button>
-    <button type="button" class="hub-tab" data-tab="Tools">Tools</button>
-    <button type="button" class="hub-tab" data-tab="MISMO Engineering Guidelines">MISMO Engineering Guidelines</button>
+    <button type="button" class="hub-tab active" data-tab="MISMO Initiatives">MISMO Initiatives<span class="tab-count" id="countActive"></span></button>
+    <button type="button" class="hub-tab" data-tab="Potential Initiatives">Potential Initiatives<span class="tab-count" id="countPotential"></span></button>
   </div>
 
   <div id="initiativesTabContent">
@@ -516,6 +532,15 @@
   renderTiles();
   renderPanel();
 
+  // Counts unique initiatives, not domain placements - two initiatives are
+  // cross-listed across two domains each, so summing the tiles would over-report.
+  (function setTabCounts(){
+    const el = document.getElementById('countActive');
+    if (el) el.textContent = initiatives.length;
+    const pot = document.getElementById('countPotential');
+    if (pot) pot.textContent = '0';
+  })();
+
   // --- Hub top-level tabs (Initiatives / Reference Model / Tools / MISMO Engineering Guidelines) ---
   // Only "Initiatives" has real content right now; the other three show a plain placeholder.
   const hubTabButtons = document.querySelectorAll('#hubTabs .hub-tab');
@@ -527,13 +552,19 @@
       hubTabButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const tabName = btn.dataset.tab;
-      if (tabName === 'Initiatives'){
+      if (tabName === 'MISMO Initiatives'){
         initiativesTabContent.style.display = '';
         placeholderTabContent.style.display = 'none';
       } else {
         initiativesTabContent.style.display = 'none';
         placeholderTabContent.style.display = '';
-        placeholderTabContent.innerHTML = `<div class="hub-tab-placeholder"><strong>${tabName}</strong>Coming soon.</div>`;
+        // Placeholder for now - the layout and trackers for this section are still
+        // to be designed, so this deliberately does not invent a structure yet.
+        placeholderTabContent.innerHTML = `<div class="hub-tab-placeholder">
+          <strong>Potential Initiatives</strong>
+          Work requests and proposals being evaluated, before they become chartered initiatives.
+          <div style="margin-top:10px; font-size:12.5px; opacity:.8;">Layout and trackers still to be designed.</div>
+        </div>`;
       }
     });
   });
