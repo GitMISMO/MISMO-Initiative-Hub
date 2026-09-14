@@ -866,6 +866,7 @@
     color:var(--ink-soft);
   }
 </style>
+  <script src="dashboard-data.js"></script>
 </head>
 <body>
 
@@ -895,7 +896,7 @@
   <button type="button" id="lockToggleBtn" class="lock-toggle-btn" aria-pressed="true" title="Unlock to allow edits">
     <span class="lock-icon" aria-hidden="true"></span><span class="lock-label">Locked</span>
   </button>
-  <button type="button" id="saveSnapshotBtn" class="save-toggle-btn" title="Save your current edits so they survive a page refresh">
+  <button type="button" id="saveSnapshotBtn" class="save-toggle-btn" title="Save your edits to the repository so everyone sees them">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path></svg>
     <span class="save-label">Save</span>
     <span class="dirty-dot" aria-hidden="true"></span>
@@ -1283,50 +1284,49 @@
 
   // --- Shared persistent storage (test build) ---
   // Keys are namespaced per-dashboard as cheap insurance against any cross-artifact collision.
-  const ROSTER_STORAGE_KEY = 'tpa-roster-data-v1';
-  const LANE_STORAGE_KEY = 'tpa-lane-data-v1';
-  let hasLoadedFromStorage = false; // guards against saving default data over real stored data before the initial load finishes
+  // Storage is git-backed now and lives in dashboard-data.js — see that file for why.
+  // These wrappers keep the existing call sites working: an edit marks the page dirty,
+  // and nothing reaches the repository until the Save button is pressed.
+  MismoStore.configure({ id: 'tpa' });
+  let hasLoadedFromStorage = false;
+  let pendingGenericState = null;
 
-  async function saveRosterData(){
-    if (!window.storage || !hasLoadedFromStorage) return;
-    try {
-      await window.storage.set(ROSTER_STORAGE_KEY, JSON.stringify(rosterData), true);
-    } catch (err) {
-      console.error('Could not save roster data to shared storage:', err);
-    }
-  }
+  // Gated on hasLoadedFromStorage for two reasons. Semantically, nothing that happens
+  // before the saved data arrives is a user edit. Practically, the initial render calls
+  // these, and flagUnsaved() touches `isRestoring` and `hasUnsavedChanges`, which are
+  // declared with let much further down — reaching them early throws a temporal-dead-zone
+  // ReferenceError that aborts the rest of the script and leaves the roster blank.
+  function saveRosterData(){ if (hasLoadedFromStorage) flagUnsaved(); }
+  function saveLaneData(){ if (hasLoadedFromStorage) flagUnsaved(); }
 
-  async function saveLaneData(){
-    if (!window.storage || !hasLoadedFromStorage) return;
-    try {
-      await window.storage.set(LANE_STORAGE_KEY, JSON.stringify(laneData), true);
-    } catch (err) {
-      console.error('Could not save roadmap data to shared storage:', err);
-    }
-  }
-
+  // Reads the committed data file. Runs for EVERY visitor at page load, not lazily on
+  // first edit as it used to — otherwise a viewer would see the built-in defaults while
+  // an editor saw the saved data, and the two would disagree about what is true.
   async function loadSharedData(){
-    if (!window.storage) return { rosterFound: false, laneFound: false };
-    let rosterFound = false;
-    let laneFound = false;
-    try {
-      const r = await window.storage.get(ROSTER_STORAGE_KEY, true);
-      if (r && r.value) {
-        rosterData = JSON.parse(r.value);
-        rosterFound = true;
-      }
-    } catch (err) {
-      // No stored roster yet — this throws rather than returning null, per the storage API.
+    const saved = await MismoStore.load();
+    if (!saved) return { rosterFound: false, laneFound: false };
+    let rosterFound = false, laneFound = false;
+    if (Array.isArray(saved.rosterData)) { rosterData = saved.rosterData; rosterFound = true; }
+
+    // Merged over the defaults, never assigned wholesale. A saved file can predate a lane
+    // that exists now — stakeholder types change, and every type owns a lane — and
+    // renderLane() throws on a missing key, which aborts the rest of the boot and leaves
+    // the page half-rendered. Any lane absent from the file falls back to an empty one.
+    if (saved.laneData && typeof saved.laneData === 'object') {
+      Object.keys(saved.laneData).forEach(function(k){
+        var v = saved.laneData[k] || {};
+        laneData[k] = {
+          goals:      Array.isArray(v.goals)      ? v.goals      : [],
+          roadblocks: Array.isArray(v.roadblocks) ? v.roadblocks : [],
+          actions:    Array.isArray(v.actions)    ? v.actions    : []
+        };
+      });
+      Object.keys(laneLabels).forEach(function(k){
+        if (!laneData[k]) laneData[k] = { goals: [], roadblocks: [], actions: [] };
+      });
+      laneFound = true;
     }
-    try {
-      const l = await window.storage.get(LANE_STORAGE_KEY, true);
-      if (l && l.value) {
-        laneData = JSON.parse(l.value);
-        laneFound = true;
-      }
-    } catch (err) {
-      // No stored roadmap data yet.
-    }
+    if (saved.generic) pendingGenericState = saved.generic;
     return { rosterFound, laneFound };
   }
 
@@ -1617,7 +1617,14 @@
 
   function renderTypeSidebar(){
     const sidebar = document.getElementById('rosterSidebar');
-    const allTypes = [...new Set(rosterData.map(r => r.type))].sort((a, b) => a.localeCompare(b));
+    // Union of types that have organizations AND every approved type for this initiative
+    // (the keys of ROSTER_TYPE_TO_LANE). Sourcing from rosterData alone hides any type with
+    // zero organizations, which makes that type's roadmap lane unreachable — the
+    // one-lane-per-type rule has to hold in the UI, not only in the data.
+    const allTypes = [...new Set([
+      ...rosterData.map(r => r.type),
+      ...Object.keys(ROSTER_TYPE_TO_LANE)
+    ])].sort((a, b) => a.localeCompare(b));
     let html = '<div class="roster-side-label">At a glance — every type</div>';
     allTypes.forEach(type => {
       const rows = rosterData.filter(r => r.type === type);
@@ -1625,7 +1632,9 @@
       STATUS_ORDER.forEach(key => counts[key] = 0);
       rows.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
       const total = rows.length;
-      const segs = STATUS_ORDER.filter(key => counts[key] > 0).map(key =>
+      // total can be 0 for an approved type with no organizations; dividing by it emits
+      // width:NaN% and collapses the bar.
+      const segs = total === 0 ? '' : STATUS_ORDER.filter(key => counts[key] > 0).map(key =>
         `<div class="mini-seg" style="width:${(counts[key] / total * 100).toFixed(1)}%; background:var(${statusColorVar[key]});"></div>`
       ).join('');
       html += `<div class="type-row ${type === activeType ? 'active' : ''}" data-type-select="${escapeAttr(type)}">
@@ -1881,20 +1890,9 @@
     }
   });
 
-  // Pure viewing never touches window.storage — only the first actual edit does.
-  // This avoids the account-required prompt firing for people who are just looking.
-  async function ensureLoaded(){
-    if (hasLoadedFromStorage) return;
-    const { rosterFound, laneFound } = await loadSharedData();
-    hasLoadedFromStorage = true;
-    renderLane();
-    renderGoalsStrip();
-    renderRosterList();
-    // If this is the very first edit ever made (nothing in shared storage yet), seed it
-    // with the current defaults so every subsequent viewer/editor starts from the same baseline.
-    if (!rosterFound) saveRosterData();
-    if (!laneFound) saveLaneData();
-  }
+  // Kept as a no-op so existing `await ensureLoaded()` call sites still work. Data is
+  // loaded once at boot (see bootstrapSharedData at the end of this script), not per edit.
+  async function ensureLoaded(){ return; }
 
   currentLane = ROSTER_TYPE_TO_LANE[activeType] || 'general';
   renderLane();
@@ -1983,7 +1981,9 @@
       .filter(el => !el.parentElement || el.parentElement.closest('[contenteditable]') === null);
     editableEls.forEach(el => {
       const key = computeStableFieldKey(el, editableEls);
-      if (state.editable && state.editable[key] !== undefined) el.innerHTML = state.editable[key];
+      // Sanitised: this state may have come from the committed file, i.e. from someone
+      // else's browser. See sanitizeHtml in dashboard-data.js for why that matters now.
+      if (state.editable && state.editable[key] !== undefined) el.innerHTML = MismoStore.sanitizeHtml(state.editable[key]);
     });
 
     const selectEls = [...document.querySelectorAll('select')].filter(el => !isExcluded(el));
@@ -2018,6 +2018,13 @@
   document.addEventListener('input', markDirty, true);
   document.addEventListener('change', markDirty, true);
 
+  // Same flag, callable without an event — the data-model save hooks use this.
+  function flagUnsaved(){
+    if (isRestoring || hasUnsavedChanges) return;
+    hasUnsavedChanges = true;
+    saveSnapshotBtn.classList.add('has-changes');
+  }
+
   saveSnapshotBtn.addEventListener('click', async () => {
     // Org name, notes, roadblocks, type, and pills only reach the data model on
     // blur. Clicking Save normally blurs whatever was focused as a side effect -
@@ -2036,14 +2043,42 @@
         laneData: laneData,
         generic: captureGenericFieldStates()
       };
-      localStorage.setItem('tpa-dashboard-snapshot', JSON.stringify(snapshot));
-      hasUnsavedChanges = false;
-      saveSnapshotBtn.classList.remove('has-changes');
-      saveSnapshotBtn.classList.add('just-saved');
-      label.textContent = 'Saved!';
+
+      // Saving commits to the repository, so it is visible to everyone rather than to
+      // this browser. Without a token the page is still fully editable — the work is
+      // just held locally until one is added.
+      if (!MismoStore.hasToken()) {
+        if (!MismoStore.promptForToken() || !MismoStore.hasToken()) {
+          label.textContent = 'Not saved';
+          try { localStorage.setItem('tpa-dashboard-snapshot', JSON.stringify(snapshot)); } catch (e2) {}
+          alert(MismoStore.explain('NO_TOKEN'));
+          throw new Error('handled');
+        }
+      }
+
+      label.textContent = 'Saving…';
+      const result = await MismoStore.save(snapshot);
+
+      if (result.ok) {
+        hasUnsavedChanges = false;
+        saveSnapshotBtn.classList.remove('has-changes');
+        saveSnapshotBtn.classList.add('just-saved');
+        label.textContent = 'Saved';
+        // The commit is the record now, so a stale local draft would only be confusing.
+        try { localStorage.removeItem('tpa-dashboard-snapshot'); } catch (e2) {}
+        document.getElementById('restoreBanner').style.display = 'none';
+      } else {
+        // Keep the work somewhere. The restore banner picks this up on the next load,
+        // so a failed save plus an accidental refresh doesn't lose an afternoon.
+        try { localStorage.setItem('tpa-dashboard-snapshot', JSON.stringify(snapshot)); } catch (e2) {}
+        label.textContent = 'Not saved';
+        alert(MismoStore.explain(result.reason));
+      }
     } catch (e) {
-      label.textContent = 'Save failed';
-      alert('Could not save — this browser may be blocking local storage (common in some private/incognito modes, or in a sandboxed preview). Try the real published link in a normal browser tab.');
+      if (e && e.message !== 'handled') {
+        label.textContent = 'Not saved';
+        alert(MismoStore.explain('NETWORK'));
+      }
     }
     setTimeout(() => {
       saveSnapshotBtn.classList.remove('just-saved');
@@ -2083,17 +2118,80 @@
       alert('This saved snapshot is unreadable and can\'t be restored.');
       return;
     }
-    rosterData = snapshot.rosterData || rosterData;
-    laneData = snapshot.laneData || laneData;
+    if (Array.isArray(snapshot.rosterData)) rosterData = snapshot.rosterData;
+    // Merged, not assigned — same reason as loadSharedData: a draft can predate a lane
+    // that exists now, and renderLane() throws on a missing key.
+    if (snapshot.laneData && typeof snapshot.laneData === 'object') {
+      Object.keys(snapshot.laneData).forEach(function(k){
+        var v = snapshot.laneData[k] || {};
+        laneData[k] = {
+          goals:      Array.isArray(v.goals)      ? v.goals      : [],
+          roadblocks: Array.isArray(v.roadblocks) ? v.roadblocks : [],
+          actions:    Array.isArray(v.actions)    ? v.actions    : []
+        };
+      });
+      Object.keys(laneLabels).forEach(function(k){
+        if (!laneData[k]) laneData[k] = { goals: [], roadblocks: [], actions: [] };
+      });
+    }
+    renderTypeSidebar();
     renderLane();
     renderGoalsStrip();
     renderRosterList();
     applyGenericFieldStates(snapshot.generic);
     applyLockState();
     banner.style.display = 'none';
+    // A draft is, by definition, not committed. Before this change a restore WAS the saved
+    // state, so leaving it clean was right; now it must show as unsaved or the Save button
+    // gives no signal and closing the tab loses it silently.
+    hasUnsavedChanges = false;   // reset first so flagUnsaved()'s early-return doesn't skip it
+    flagUnsaved();
   });
   document.getElementById('dismissRestoreBtn').addEventListener('click', () => {
     document.getElementById('restoreBanner').style.display = 'none';
+  });
+
+  // Load the committed data once, for every visitor. Runs after the initial render so the
+  // page paints defaults immediately rather than waiting on the network, then repaints if
+  // saved data comes back. hasLoadedFromStorage only flips once the read has actually
+  // finished — an unreadable file must not be mistaken for an empty one, or the next save
+  // would commit defaults over real data.
+  (async function bootstrapSharedData(){
+    const { rosterFound, laneFound } = await loadSharedData();
+    if (rosterFound || laneFound) {
+      // The saved roster may not contain the type the page defaulted to, which would leave
+      // the sidebar with no active row and the list empty. Re-derive it the same way the
+      // initial render does: first type that has organizations, else first approved type.
+      const present = [...new Set(rosterData.map(r => r.type))].sort((a, b) => a.localeCompare(b));
+      const approved = Object.keys(ROSTER_TYPE_TO_LANE).sort((a, b) => a.localeCompare(b));
+      // Prefer a type that actually has organizations. An approved type with none is a
+      // valid selection, but opening onto an empty panel after a load is not useful.
+      if (!present.includes(activeType)) activeType = present[0] || approved[0];
+      currentLane = ROSTER_TYPE_TO_LANE[activeType] || currentLane;
+      renderTypeSidebar();   // counts come from the roster, so they are stale until this runs
+      renderLane();
+      renderGoalsStrip();
+      renderRosterList();
+    }
+    if (pendingGenericState) {
+      applyGenericFieldStates(pendingGenericState);
+      pendingGenericState = null;
+    }
+    applyLockState();
+
+    // Only now does an edit count as an edit. Setting this earlier lets the re-render above
+    // trip the dirty flag, so the page would open claiming unsaved changes before anyone
+    // touched it — and the beforeunload prompt would fire on a plain visit.
+    hasLoadedFromStorage = true;
+    hasUnsavedChanges = false;
+    saveSnapshotBtn.classList.remove('has-changes');
+  })();
+
+  // Leaving with unsaved edits is the one way work is still lost, so say so.
+  window.addEventListener('beforeunload', function (e) {
+    if (!hasUnsavedChanges) return;
+    e.preventDefault();
+    e.returnValue = '';
   });
 </script>
 
