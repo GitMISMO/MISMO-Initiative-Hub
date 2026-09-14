@@ -1087,9 +1087,9 @@
       <div class="card stake-card">
         <table>
           <tr><th>Type</th><th>Benefit</th><th>Critical</th><th>Role</th></tr>
-          <tr><td><select class="type-select"><option value="AVM Provider" selected>AVM Provider</option><option value="GSE">GSE</option><option value="Lender">Lender</option></select></td><td contenteditable="true">Standardized way to communicate valuation confidence, marketed with assurance of following MISMO-prescribed standards</td><td><select class="crit-select is-star"><option value="star" selected>★</option><option value="line">—</option></select></td><td><select class="role-select"><option value="Driver">Driver</option><option value="Implementer" selected>Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
-          <tr><td><select class="type-select"><option value="AVM Provider">AVM Provider</option><option value="GSE" selected>GSE</option><option value="Lender">Lender</option></select></td><td contenteditable="true">Supports compliance with the interagency rule for Quality Control Standards for AVMs</td><td><select class="crit-select"><option value="star">★</option><option value="line" selected>—</option></select></td><td><select class="role-select"><option value="Driver" selected>Driver</option><option value="Implementer">Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
-          <tr><td><select class="type-select"><option value="AVM Provider">AVM Provider</option><option value="GSE">GSE</option><option value="Lender" selected>Lender</option></select></td><td contenteditable="true">Can evaluate risk more effectively, knowing AVMs across providers can be assessed through the same lens</td><td><select class="crit-select is-star"><option value="star" selected>★</option><option value="line">—</option></select></td><td><select class="role-select"><option value="Driver" selected>Driver</option><option value="Implementer">Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
+          <tr><td><select class="type-select"><option value="AVM Provider" selected>AVM Provider</option><option value="GSE">GSE</option><option value="Mortgage Originator">Mortgage Originator</option></select></td><td contenteditable="true">Standardized way to communicate valuation confidence, marketed with assurance of following MISMO-prescribed standards</td><td><select class="crit-select is-star"><option value="star" selected>★</option><option value="line">—</option></select></td><td><select class="role-select"><option value="Driver">Driver</option><option value="Implementer" selected>Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
+          <tr><td><select class="type-select"><option value="AVM Provider">AVM Provider</option><option value="GSE" selected>GSE</option><option value="Mortgage Originator">Mortgage Originator</option></select></td><td contenteditable="true">Supports compliance with the interagency rule for Quality Control Standards for AVMs</td><td><select class="crit-select"><option value="star">★</option><option value="line" selected>—</option></select></td><td><select class="role-select"><option value="Driver" selected>Driver</option><option value="Implementer">Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
+          <tr><td><select class="type-select"><option value="AVM Provider">AVM Provider</option><option value="GSE">GSE</option><option value="Mortgage Originator" selected>Mortgage Originator</option></select></td><td contenteditable="true">Can evaluate risk more effectively, knowing AVMs across providers can be assessed through the same lens</td><td><select class="crit-select is-star"><option value="star" selected>★</option><option value="line">—</option></select></td><td><select class="role-select"><option value="Driver" selected>Driver</option><option value="Implementer">Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
         </table>
       </div>
     </div>
@@ -1109,7 +1109,7 @@
             <select class="add-company-type-select" id="addCompanyTypeSelect">
               <option value="AVM Provider">AVM Provider</option>
               <option value="GSE">GSE</option>
-              <option value="Lender">Lender</option>
+              <option value="Mortgage Originator">Mortgage Originator</option>
             </select>
             <div class="add-company-error" id="addCompanyError" style="display:none;"></div>
             <div class="add-company-actions">
@@ -1135,7 +1135,7 @@
       <datalist id="stakeholderTypeOptions">
         <option value="AVM Provider">
         <option value="GSE">
-        <option value="Lender">
+        <option value="Mortgage Originator">
       </datalist>
     </div>
   </section>
@@ -1382,7 +1382,7 @@
     general: 'General',
     avmprovider: 'AVM Provider',
     gse: 'GSE',
-    lender: 'Lender'
+    lender: 'Mortgage Originator'
   };
 
   function renderLane(){
@@ -1553,11 +1553,11 @@
     {type:'AVM Provider', org:'House Canary', status:'not-planned', primaryContact:'', title:'', email:'', participants:'No roster data on file', notes:'No implementation confirmed in source.', roadblocks:'', targetDate:''},
     {type:'GSE', org:'Fannie Mae', status:'not-planned', primaryContact:'Lyle Radke', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Lyle Radke (0/31)', notes:'Listed as a stakeholder; no active meeting engagement on file.', roadblocks:'', targetDate:''},
     {type:'GSE', org:'Freddie Mac', status:'not-planned', primaryContact:'', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Brian Johnson (0/31)', notes:'Listed as a stakeholder; no active meeting engagement on file.', roadblocks:'', targetDate:''},
-    {type:'Lender', org:'U.S. Bank', status:'impl-planned', primaryContact:'Matt Custer', title:'', email:'', participants:'Matt Custer (12/31)', notes:'Attending more regularly and actively engaged in the group as of August 2025.', roadblocks:'', targetDate:''},
-    {type:'Lender', org:'JPMorgan Chase', status:'impl-planned', primaryContact:'Lisa Morrison', title:'', email:'', participants:'Lisa Morrison (23/31) — see Manifest Check re: Co-Chair Carla Nott', notes:'Call held February 2026 with Lisa Morrison and Jarrett Scarpiello to discuss Common Confidence Score implementation.', roadblocks:'', targetDate:''},
-    {type:'Lender', org:'Truist', status:'not-planned', primaryContact:'Sara Campione', title:'', email:'', participants:'No roster data on file', notes:'Outreach contact identified; has expressed interest but has not yet attended.', roadblocks:'', targetDate:''},
-    {type:'Lender', org:'Columbia Bank (Umpqua)', status:'not-planned', primaryContact:'Katherine Owen', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Katherine Owen (2/31)', notes:'Attended a couple of meetings; attendance has been inconsistent.', roadblocks:'', targetDate:''},
-    {type:'Lender', org:'United Wholesale Mortgage', status:'not-planned', primaryContact:'', title:'', email:'', participants:'No roster data on file', notes:'Outreach in progress to identify the right internal contact (candidates: Kim Brown, Howard Ellison, Dom Virgilio).', roadblocks:'', targetDate:''}
+    {type:'Mortgage Originator', org:'U.S. Bank', status:'impl-planned', primaryContact:'Matt Custer', title:'', email:'', participants:'Matt Custer (12/31)', notes:'Attending more regularly and actively engaged in the group as of August 2025.', roadblocks:'', targetDate:''},
+    {type:'Mortgage Originator', org:'JPMorgan Chase', status:'impl-planned', primaryContact:'Lisa Morrison', title:'', email:'', participants:'Lisa Morrison (23/31) — see Manifest Check re: Co-Chair Carla Nott', notes:'Call held February 2026 with Lisa Morrison and Jarrett Scarpiello to discuss Common Confidence Score implementation.', roadblocks:'', targetDate:''},
+    {type:'Mortgage Originator', org:'Truist', status:'not-planned', primaryContact:'Sara Campione', title:'', email:'', participants:'No roster data on file', notes:'Outreach contact identified; has expressed interest but has not yet attended.', roadblocks:'', targetDate:''},
+    {type:'Mortgage Originator', org:'Columbia Bank (Umpqua)', status:'not-planned', primaryContact:'Katherine Owen', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Katherine Owen (2/31)', notes:'Attended a couple of meetings; attendance has been inconsistent.', roadblocks:'', targetDate:''},
+    {type:'Mortgage Originator', org:'United Wholesale Mortgage', status:'not-planned', primaryContact:'', title:'', email:'', participants:'No roster data on file', notes:'Outreach in progress to identify the right internal contact (candidates: Kim Brown, Howard Ellison, Dom Virgilio).', roadblocks:'', targetDate:''}
   ];
 
   const statusOptions = [
@@ -1650,7 +1650,7 @@
   const ROSTER_TYPE_TO_LANE = {
     'AVM Provider': 'avmprovider',
     'GSE': 'gse',
-    'Lender': 'lender'
+    'Mortgage Originator': 'lender'
   };
 
   // The current-type label above the roster is the only thing this function handles —

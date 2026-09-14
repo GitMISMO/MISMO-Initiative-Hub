@@ -1266,12 +1266,23 @@
         {task:'Lead multi-state MCD testing across 12 states', owner:'Jeremy Windham', status:'in-progress', label:'In Progress'}
       ]
     },
-    lender: {
+    lender_3pl: {
       goals: ['Confirm MCD readiness with LOS and compliance vendor ahead of state mandates'],
       roadblocks: [],
       actions: [
         {task:'Provide awareness that MCD will be mandated by select states', owner:'Jeremy Windham', status:'complete', label:'Complete'}
       ]
+    },
+    // Split out of the former combined "lender" lane so each stakeholder type owns exactly
+    // one lane. The content above stayed with 3rd Party LOS because its goal is specifically
+    // about confirming readiness WITH an LOS provider — a proprietary-LOS lender builds its
+    // own export instead. NEEDS REVIEW: the completed awareness task arguably applies to both
+    // lender types, and this lane has no goals of its own yet. Empty is correct until real
+    // content exists; do not fabricate goals to fill the shape.
+    lender_prop: {
+      goals: [],
+      roadblocks: [],
+      actions: []
     },
     los: {
       goals: ['Build and certify MCD export capability across LOS platforms'],
@@ -1402,7 +1413,8 @@
   const laneLabels = {
     general: 'General',
     regulator: 'Regulator',
-    lender: 'Lender',
+    lender_3pl: 'Lender (3rd Party LOS)',
+    lender_prop: 'Lender (Proprietary LOS)',
     los: 'LOS Provider',
     compliance: 'Compliance Vendor',
     reviewer: 'Third-Party Reviewer'
@@ -1677,8 +1689,8 @@
   // roster tracks them as two distinct org types.
   const ROSTER_TYPE_TO_LANE = {
     'Regulator': 'regulator',
-    'Lender (3rd Party LOS)': 'lender',
-    'Lender (Proprietary LOS)': 'lender',
+    'Lender (3rd Party LOS)': 'lender_3pl',
+    'Lender (Proprietary LOS)': 'lender_prop',
     'LOS Provider': 'los',
     'Compliance Vendor': 'compliance',
     'Third-Party Reviewer': 'reviewer'
