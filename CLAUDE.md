@@ -8,7 +8,9 @@ out, sometimes the hard way, across many earlier sessions in Claude.ai.
 
 A set of static HTML dashboards tracking MISMO workgroup initiatives — built,
 tested, and deployed entirely through hand-written HTML/CSS/vanilla JS (no
-build step, no framework, no backend yet).
+build step, no framework, no server). The repository itself is the data store:
+edits are committed to `data/<id>.json` through the GitHub contents API. See
+**Saving** below.
 
 - **Live site:** https://pwcodingllc.github.io/MISMO-Initiative-Hub/
 - **Repo:** https://github.com/PWCodingLLC/MISMO-Initiative-Hub
@@ -21,6 +23,8 @@ build step, no framework, no backend yet).
 | `index.html` | The hub homepage — domain tiles, tabs, links out to each dashboard |
 | `mcd-dashboard.html`, `lbds-dashboard.html`, `ccs-dashboard.html`, `tpa-dashboard.html` | The four live, real workgroup dashboards |
 | `calendar.html` | Meeting calendar with a workgroup filter dropdown |
+| `dashboard-data.js` | Shared git-backed storage used by every dashboard: reads the committed data file, commits saves, holds the conflict lock, sanitises shared HTML. Read its header comment before touching persistence. |
+| `data/<id>.json` | One committed data file per dashboard, created by the first save. Absent until then; a missing file means "use the built-in defaults". |
 | `_dev/dashboard-template.html` | Starting point for building a **new** dashboard — see below |
 | `_dev/validate_nesting.py` | HTML nesting validator used before every deploy |
 
@@ -81,15 +85,55 @@ comments, and it's the same tradeoff already live on all four real dashboards
 - **Default theme is light.** A FOUC-prevention inline `<script>` sits at the
   very top of `<head>`, before any stylesheet, reading a per-dashboard
   localStorage key and setting `data-theme` before first paint.
-- **Per-dashboard localStorage keys**, all namespaced by dashboard ID (e.g.
-  `mcd-`, `lbds-`): `{id}-dashboard-theme`, `{id}-roster-data-v1`,
-  `{id}-lane-data-v1`, `{id}-dashboard-snapshot`.
-- **Save/Restore system** serializes the actual JS data model (`rosterData`,
-  `laneData`, plus every other editable field's live value) to localStorage —
-  it does **not** snapshot rendered HTML. This matters because a `<select>`'s
-  or `<input type="date">`'s current value is never reflected in its
-  `outerHTML` once a user changes it, so an HTML-snapshot approach would
-  silently lose edits.
+- **localStorage keys:** per-dashboard `{id}-dashboard-theme` (theme
+  preference — per-browser is correct for this) and `{id}-dashboard-snapshot`
+  (a *draft*, written only when a save could not reach GitHub, offered by the
+  restore banner on next load). One global key, `mismo-hub-github-token`, holds
+  the editor's own token. The old `{id}-roster-data-v1` / `{id}-lane-data-v1`
+  keys are gone; nothing reads them.
+- **Saving** commits `data/<id>.json` through the GitHub contents API. The
+  snapshot is the actual JS data model (`rosterData`, `laneData`, plus every
+  other editable field's live value) — it is **not** rendered HTML, because a
+  `<select>`'s or date input's current value is never reflected in its
+  `outerHTML` once changed, so an HTML snapshot silently loses edits. Every
+  visitor reads the committed file at page load. Details that are easy to get
+  wrong:
+  - **The conflict lock uses the SHA of the version the page READ**, captured
+    at load, never refreshed at save time. Fetching the current SHA just before
+    writing makes every write match and the lock never fires — that exact bug
+    shipped in a first draft and was caught in review. If someone else
+    committed since load, GitHub answers 409 and the user is told to reload.
+  - Editors (token present) read via the API: always fresh, and it returns the
+    SHA. Viewers read the deployed file from the same origin (no token, no API
+    quota) and the blob SHA is computed client-side from the bytes.
+  - Editable-field HTML is stored as `innerHTML` and now arrives from a shared
+    file, so it is **sanitised on apply** (`MismoStore.sanitizeHtml`). Without
+    that, anyone with write access could commit markup that runs in every
+    other facilitator's browser and reads their token.
+  - `hasLoadedFromStorage` is set only after the post-load re-render; set
+    earlier, the re-render trips the dirty flag and the page opens claiming
+    unsaved changes. `laneData` from a file is **merged** over the defaults,
+    never assigned — a file predating a lane crashes `renderLane()` otherwise.
+  - A save that fails must say so. The previous `window.storage` path failed
+    silently on Pages and lost every edit for months. Never reintroduce a
+    storage path that can fail without telling the user.
+- **One roadmap lane per stakeholder type, one-to-one.** Every type in the
+  stakeholder table owns exactly one lane; every lane other than `general`
+  belongs to exactly one type. `ROSTER_TYPE_TO_LANE` is where this is written
+  down and where a violation would appear (two types mapping to one lane). A
+  type with no content gets an empty lane, which renders as "No tasks yet for
+  this stakeholder group." Do not invent goals to fill it. This is a decided
+  rule; an earlier template comment describing a two-types-one-lane collapse
+  as acceptable was wrong and has been removed.
+- **Roster sidebar shows every approved type**, built from the union of roster
+  types and `ROSTER_TYPE_TO_LANE` keys, with a divide-by-zero guard for empty
+  bars. Sourcing from roster rows alone hides a type with no organizations and
+  makes its lane unreachable.
+- **Default selected type is the first that has organizations**, falling back
+  to the first approved type. The older "first alphabetically" rule predates
+  types that can be empty; under it a page could open on a blank panel.
+- **★ Critical is awareness, not function.** It is a visual marker on the
+  stakeholder table and nothing keys off it.
 - **Locked vs. unlocked mode:** dashboards load locked (read-only) by default.
   `body.locked` disables interaction on editable `<select>`s/`<input>`s via
   `pointer-events:none` — but a plain `<select>` still shows its native
@@ -140,7 +184,14 @@ comments, and it's the same tradeoff already live on all four real dashboards
    code alone but were visibly wrong once rendered (a fixed pixel offset that
    worked for one dashboard's row height and broke on a shorter row is a
    good example of why "looks right in the diff" isn't sufficient).
-6. Only after all of the above passes, copy to the deploy location and `git
+6. **Test what you claim, not what you built.** The conflict lock looked
+   right in the code and passed every render test; it only fails when two
+   people save. It was caught by intercepting `api.github.com` with a
+   Playwright `page.route`, checking the SHA in the PUT body against
+   `git hash-object` of the file the page read, and asserting a mocked 409
+   surfaces as a conflict. Any claim about concurrency, persistence or
+   security needs a test that exercises the claim.
+7. Only after all of the above passes, copy to the deploy location and `git
    push`.
 
 ## Deployment workflow
@@ -178,11 +229,35 @@ personal access token in a plaintext file:
 
 Carried forward from earlier sessions, still outstanding as of this handoff:
 
+- **`_dev/dashboard-template.html` has drifted structurally again.** The four
+  live dashboards use the sidebar layout (`renderTypeSidebar`,
+  `ROSTER_TYPE_TO_LANE`, roadmap rendered inside the roster panel keyed on
+  `activeType`, `computeStableFieldKey` for generic fields). The template is
+  still on the older chip-row layout (`renderChips`, separate `#roadmap`
+  section, index-based generic field keys). Its storage layer and comments
+  were brought current in Sept 2026; its layout was not. A dashboard built
+  from it today will not match the other four. Re-sync section by section as
+  before — do not rebuild from scratch, the token system must survive.
+- LBDS's roadmap content is pending: the `LOS Provider`, `Servicing System`
+  and `Aggregator/Investor` lanes ship empty by decision. The content removed
+  from the old combined lane is preserved verbatim in a comment above the
+  split in `lbds-dashboard.html`.
+- MCD's `Lender (Proprietary LOS)` lane is empty and its completed awareness
+  task sits only under `Lender (3rd Party LOS)`; arguably it applies to both.
+  Flagged NEEDS REVIEW in the code.
+- Stakeholder-type names have not converged: TPA's `Investors/Aggregators` vs
+  LBDS's `Aggregator/Investor` are one type under two names; TPA's
+  `Warehouse Lenders` is plural where the list is singular. Settle before the
+  admin panel makes the approved list authoritative.
+- The admin panel (shared, approved stakeholder-type list) does not exist.
+  When built it needs its own guard — retiring a type that initiatives still
+  select orphans a roadmap lane — and `dashboard-data.js` is per-dashboard
+  today; the shared list will need a shared path.
+- LBDS's meeting-tracker leaderboard was MCD's data verbatim and has been
+  removed. LBDS's own engagement scores have never been loaded; the card says
+  so. Restore the array and render loop from the template when real figures
+  exist. Do not repopulate from another workgroup's tracker.
 - LBDS's resource links are placeholders — need real URLs.
-- LBDS's meeting-tracker leaderboard shows names carried over from MCD —
-  needs LBDS's own real names.
-- A `window.storage` dead-code path exists in at least one dashboard and
-  hasn't been decided on (remove vs. actually wire up).
 - The hub's brand color (`--brand: #2A4DFF`) doesn't match the four
   dashboards' brand color (`#125DAB`) — never reconciled.
 - The calendar page (`calendar.html`) doesn't have full dark-mode styling.
@@ -191,8 +266,10 @@ Carried forward from earlier sessions, still outstanding as of this handoff:
 
 ## What's next for this project
 
-The person building this is planning to add a backend and other more complex
-elements. See this project's conversation history in Claude.ai for the
+The repository is the backend now, by decision: no new service or account. The
+next structural pieces are the admin panel for stakeholder types and the
+Potential Initiatives feature (designed and approved in an earlier session,
+not yet built — see `DASHBOARD-HANDOFF.md` in that session's outputs). See this project's conversation history in Claude.ai for the
 reasoning already discussed on model/effort selection (Sonnet for day-to-day
 work, Opus/Fable for architecture decisions, `opusplan` to combine both) and
 using the advisor tool or an adversarial review subagent as a second check on
