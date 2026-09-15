@@ -20,7 +20,7 @@
  * ENVIRONMENT VARIABLES (set once, by whoever owns the AWS account)
  *   GITHUB_TOKEN     Fine-grained PAT owned by the repository's owner. This repo only,
  *                    Contents: Read and write. The only secret in the system.
- *   GITHUB_REPO      e.g. YourOrg/MISMO-Initiative-Hub
+ *   GITHUB_REPO      e.g. YourOrg/initiative-hub
  *   GITHUB_BRANCH    e.g. main
  *   ALLOWED_ORIGIN   e.g. https://yourorg.github.io   (exactly, no trailing slash)
  *
@@ -158,8 +158,8 @@ function env(name) {
 }
 
 /* PROJECTS maps a project key to its repository, branch and allowed origin:
- *   {"hub":{"repo":"GitMISMO/MISMO-Initiative-Hub","branch":"main","origin":"https://…"},
- *    "glossary":{"repo":"GitMISMO/mismo-business-glossary","branch":"main","origin":"https://…"}}
+ *   {"hub":{"repo":"GitMISMO/initiative-hub","branch":"main","origin":"https://…"},
+ *    "glossary":{"repo":"GitMISMO/glossary","branch":"main","origin":"https://…"}}
  *
  * Every route is prefixed with the project key, and ONE lookup resolves repo, branch,
  * origin and facilitator list together. That is deliberate: routing, the origin check and

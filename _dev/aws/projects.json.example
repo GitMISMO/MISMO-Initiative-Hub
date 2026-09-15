@@ -1,11 +1,11 @@
 {
   "hub": {
-    "repo": "GitMISMO/MISMO-Initiative-Hub",
+    "repo": "GitMISMO/initiative-hub",
     "branch": "main",
     "origin": "https://tools.mismo.org"
   },
   "glossary": {
-    "repo": "GitMISMO/mismo-business-glossary",
+    "repo": "GitMISMO/glossary",
     "branch": "main",
     "origin": "https://tools.mismo.org"
   }

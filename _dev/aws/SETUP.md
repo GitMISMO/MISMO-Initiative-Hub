@@ -37,7 +37,7 @@ GitHub → Settings → Developer settings → Personal access tokens → Fine-g
 - Resource owner: **GitMISMO** (the organisation, not a personal account — a token owned
   by an individual cannot see these repositories)
 - Repository access: **Only select repositories** → select **both**
-  `MISMO-Initiative-Hub` **and** `mismo-business-glossary`
+  `initiative-hub` **and** `glossary`
 - Permissions → Repository → **Contents: Read and write**. Nothing else.
 - Expiration: your call. When it lapses, saving stops with a clear message until it is
   replaced. Put a reminder in the calendar a week before.
@@ -73,8 +73,8 @@ The list of projects lives in **`projects.json` in that repository**, not in AWS
 
 ```json
 {
-  "hub":      {"repo":"GitMISMO/MISMO-Initiative-Hub",   "branch":"main", "origin":"https://tools.mismo.org"},
-  "glossary": {"repo":"GitMISMO/mismo-business-glossary","branch":"main", "origin":"https://tools.mismo.org"}
+  "hub":      {"repo":"GitMISMO/initiative-hub",   "branch":"main", "origin":"https://tools.mismo.org"},
+  "glossary": {"repo":"GitMISMO/glossary","branch":"main", "origin":"https://tools.mismo.org"}
 }
 ```
 
@@ -129,7 +129,7 @@ Commit and push. The URL is not a secret.
 
 ### 1.6 Create your admin key
 
-Open **https://gitmismo.github.io/MISMO-Initiative-Hub/key-helper.html**. It runs entirely
+Open **https://gitmismo.github.io/initiative-hub/key-helper.html**. It runs entirely
 in your browser and makes no network requests.
 
 Enter your name, choose **Admin**, click Generate. Put the passcode in a password manager —

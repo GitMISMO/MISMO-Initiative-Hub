@@ -12,8 +12,8 @@ build step, no framework, no server). The repository itself is the data store:
 edits are committed to `data/<id>.json` through the GitHub contents API. See
 **Saving** below.
 
-- **Live site:** https://gitmismo.github.io/MISMO-Initiative-Hub/
-- **Repo:** https://github.com/GitMISMO/MISMO-Initiative-Hub
+- **Live site:** https://gitmismo.github.io/initiative-hub/
+- **Repo:** https://github.com/GitMISMO/initiative-hub
 - Moved from the personal `PWCodingLLC` account to the `GitMISMO` organization in
   Sept 2026. Full history came across intact. Any link to the old
   `pwcodingllc.github.io` address is dead — GitHub redirects the repo but not Pages.
@@ -292,7 +292,7 @@ reasoning from commit messages alone, since context resets between sessions.
 
 ## GitHub access
 
-The repo is public: https://github.com/GitMISMO/MISMO-Initiative-Hub
+The repo is public: https://github.com/GitMISMO/initiative-hub
 
 For push access, authenticate properly rather than reusing a hardcoded
 personal access token in a plaintext file:
