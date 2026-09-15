@@ -104,3 +104,51 @@ r = await handler(ev('PUT','/config/stakeholder-types','Paul Admin:adminpass-XYZ
 ok('empty display name rejected', r.statusCode===400 && J(r).error==='BAD_NAME');
 r = await handler(ev('GET','/data/stakeholder-types','Jane Facilitator:k7Qm-2vXp'));
 ok('stakeholder-types reserved on /data/', r.statusCode===400);
+
+// ---------- potential initiatives ----------
+let potIndex = { ids: ['existing-one'] };
+let putCount = 0;
+const prevFetch = globalThis.fetch;
+globalThis.fetch = async (url, opts) => {
+  if (opts.method==='GET' && url.includes('/data/potential/index.json')) return {status:200, json:async()=>({sha:'1'.repeat(40), content:b64(potIndex)})};
+  if (opts.method==='GET' && url.includes('/data/potential/existing-one.json')) return {status:200, json:async()=>({sha:'2'.repeat(40), content:b64({id:'existing-one',name:'Existing'})})};
+  if (opts.method==='GET' && url.includes('/data/potential/')) return {status:404, json:async()=>({})};
+  if (opts.method==='PUT' && url.includes('/data/potential/')) { putCount++; calls.push({url,method:'PUT',body:JSON.parse(opts.body)}); return {status:201, json:async()=>({content:{sha:'9'.repeat(40)}})}; }
+  return prevFetch(url, opts);
+};
+const good = { name:'Digital Closing', stage:'in-progress', domain:'Originations', summary:'S', whyRaised:'W', broughtBy:'B', dateLogged:'2026-09-15',
+  stakeholderTypes:['Lender','GSE'], organizations:[{org:'Acme',type:'Lender',engagement:'interested',contact:'c'}], updates:[{text:'first',by:'Jane',at:'2026-09-01T10:00:00Z'},{text:'second',by:'Jane',at:'2026-09-10T10:00:00Z'}] };
+
+r = await handler(ev('GET','/potential/existing-one','Jane Facilitator:k7Qm-2vXp'));
+ok('facilitator reads a potential initiative', r.statusCode===200 && J(r).data.name==='Existing' && J(r).sha);
+r = await handler(ev('GET','/potential/index','Jane Facilitator:k7Qm-2vXp'));
+ok('"index" is not a valid initiative id', r.statusCode===400);
+r = await handler(ev('GET','/potential/nope','Jane Facilitator:k7Qm-2vXp'));
+ok('missing -> data null', r.statusCode===200 && J(r).data===null);
+
+calls.length=0; putCount=0;
+r = await handler(ev('PUT','/potential/digital-closing','Jane Facilitator:k7Qm-2vXp',{sha:null, content:good}));
+const rec = calls.find(c=>c.url.includes('digital-closing.json')); const pwritten = JSON.parse(Buffer.from(rec.body.content,'base64').toString());
+const idxw = calls.find(c=>c.url.includes('index.json')); const idxWritten = idxw && JSON.parse(Buffer.from(idxw.body.content,'base64').toString());
+ok('create: record committed with savedBy and normalised fields', r.statusCode===200 && pwritten.savedBy==='Jane Facilitator' && pwritten.id==='digital-closing' && pwritten.stage==='in-progress');
+ok('create: updates sorted newest first', pwritten.updates[0].text==='second');
+ok('create: commit message says Create and names the initiative', rec.body.message.startsWith('Create potential initiative "Digital Closing"'));
+ok('create: id appended to index with the index sha', idxWritten && idxWritten.ids.join()==='existing-one,digital-closing' && idxw.body.sha==='1'.repeat(40));
+ok('create: response reports indexed', J(r).indexed===true);
+
+calls.length=0;
+potIndex = { ids:['existing-one','digital-closing'] };
+r = await handler(ev('PUT','/potential/digital-closing','Jane Facilitator:k7Qm-2vXp',{sha:'9'.repeat(40), content:good}));
+ok('update: no index write when id already indexed', r.statusCode===200 && !calls.find(c=>c.url.includes('index.json')));
+ok('update: commit message says Update', calls[0].body.message.startsWith('Update potential initiative'));
+
+r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null, content:{...good, stakeholderTypes:['Made Up']}}));
+ok('unknown stakeholder type refused, named', r.statusCode===400 && J(r).error==='UNKNOWN_TYPE' && J(r).type==='Made Up');
+r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null, content:{...good, organizations:[{org:'Acme',type:'Lender',engagement:'maybe'}]}}));
+ok('bad engagement refused', r.statusCode===400 && J(r).error==='BAD_ENGAGEMENT');
+r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null, content:{...good, stage:'done'}}));
+ok('bad stage refused', r.statusCode===400 && J(r).error==='BAD_STAGE');
+r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null, content:{...good, name:''}}));
+ok('missing name refused', r.statusCode===400 && J(r).error==='BAD_NAME');
+r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null, content:{...good, updates:[{text:'',by:'x'}]}}));
+ok('empty update refused', r.statusCode===400 && J(r).error==='BAD_UPDATE');

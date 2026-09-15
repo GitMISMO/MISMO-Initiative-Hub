@@ -24,6 +24,10 @@ edits are committed to `data/<id>.json` through the GitHub contents API. See
 | `mcd-dashboard.html`, `lbds-dashboard.html`, `ccs-dashboard.html`, `tpa-dashboard.html` | The four live, real workgroup dashboards |
 | `calendar.html` | Meeting calendar with a workgroup filter dropdown |
 | `dashboard-data.js` | Shared git-backed storage used by every dashboard: reads the committed data file, sends saves to the relay, holds the conflict lock, sanitises shared HTML. Read its header comment before touching persistence. |
+| `potential.html` | One page that renders ANY potential initiative from `data/potential/<id>.json` (`?id=`). Approved layout: stage rail, Overview, Status Updates, Stakeholder Engagement. Week-to-week edits happen here (log an update, change an engagement, add an org) with the same Save/lock as the dashboards. |
+| `potential-edit.html` | The wizard. Create: drop a JSON file in the initiative format (or start blank), review every field, Save. Edit (`?id=`): same form, prefilled. Validation mirrors the relay's; Download JSON returns the draft for another pass in chat. |
+| `data/potential/index.json`, `data/potential/<id>.json` | The records and the list the hub reads (static hosting can't list a directory). The relay appends to the index on create. |
+| `_dev/potential-example.json` | Format reference with obviously invented values. Not data. |
 | `admin.html` | The admin panel: facilitators (add / reset passcode / remove / expiry) and the global stakeholder-type list (rename / add / remove-if-unused). Admin key only. Saves through the relay. |
 | `facilitators.json` | Who can save: one admin, N facilitators, as name + SHA-256 of a generated passcode. Public; hashes only. Edited by the admin panel (or by hand on GitHub). |
 | `stakeholder-types.json` | The global stakeholder-type list: `types` = `{key, name}` (key immutable, name is what people see) and `usage` = which dashboards use which keys. Every dashboard reads it at boot for display names. `usage` is maintained by `_dev/check-types.py`, never by the panel. |
@@ -155,6 +159,13 @@ comments, and it's the same tradeoff already live on all four real dashboards
   Adding a type to the global list makes it *available*; a dashboard adopts it
   by adding a lane (a code change), and `check-types.py --write` then records
   the usage. Merging two keys is a code change, not a rename.
+- **Potential initiatives are data, not pages.** Never generate an HTML file
+  per potential initiative. `potential.html` renders the record; the record's
+  shape is enforced by `validatePotential()` in the relay and mirrored by
+  `MismoStore.potential.validate()` in the browser, and the two must stay
+  identical. Stakeholder types on a record must be keys in
+  `stakeholder-types.json`; the relay refuses anything else. Organizations
+  whose type isn't selected for the initiative are hidden, not deleted.
 - **One roadmap lane per stakeholder type, one-to-one.** Every type in the
   stakeholder table owns exactly one lane; every lane other than `general`
   belongs to exactly one type. `ROSTER_TYPE_TO_LANE` is where this is written
@@ -323,9 +334,13 @@ Queued, roughly in order:
 2. **Lambda relay live** (IT creates it per `_dev/aws/SETUP.md`), then
    `RELAY_URL` set in `dashboard-data.js` and the admin entry created in
    `facilitators.json`.
-3. **Potential Initiatives feature** — designed and approved in an earlier
-   session, not yet built; see `DASHBOARD-HANDOFF.md` in that session's
-   outputs.
+3. **Potential Initiatives** — built Sept 2026: hub tab with cards, one
+   data-driven detail page, and the wizard. Deliberately NOT a generated
+   dashboard file per initiative: a record is a data commit, so every one
+   looks identical by construction and none depends on the drifted template.
+   "Launch into a full dashboard" is a later step that waits for the template
+   re-sync. The formatting step ("dump notes, get the format") is done in
+   chat with Claude, which produces the JSON; the site never needs an API key.
 4. **Press Release Drafting Widget and Editor** — added to the list Sept 2026.
    Not yet scoped; no design or requirements exist for it in this repo.
 5. Template structural re-sync and the TPA/LBDS key merge (see deferred list). See this project's conversation history in Claude.ai for the

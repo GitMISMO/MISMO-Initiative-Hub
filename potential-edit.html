@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New potential initiative — MISMO Initiative Hub</title>
+<!--
+  The wizard. Two ways in:
+    potential-edit.html            create: upload a JSON file in the initiative format, or start blank
+    potential-edit.html?id=<id>    edit: the existing record loads into the same form
+
+  The upload is the "dump information, have it formatted" step, done one stage earlier
+  than an AI call would do it: the file is produced with Claude in a chat, so the site
+  never needs an API key. The form is the review step — nothing is committed until
+  Save. Validation mirrors the relay's rules exactly, so what the form accepts, the
+  relay accepts. A Download button gives back the JSON at any point, which is also how
+  a draft goes back to the chat for another pass.
+-->
+<script>
+  // Follow the hub's theme choice before first paint, same key the hub uses.
+  try { if (localStorage.getItem('mismo-hub-theme') === 'dark') document.documentElement.setAttribute('data-theme','dark'); } catch (e) {}
+</script>
+<script src="dashboard-data.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  html[data-theme="dark"]{ --ink:#E8EAF0; --ink-soft:#A0A8C0; --paper:#0B0F1C; --card:#161C30; --line:#2A3150; --brand:#5B85FF; --brand-soft:#1A2745; --brand-text:#9AB8FF;
+         --slate:#64748B; --slate-soft:#1F2740; --slate-text:#8B94A7; --warnbg:#2a1d10; --warnline:#5a3a1a; --warn:#f5c08a; }
+  html[data-theme="dark"] .modal, html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea{ background:var(--card); color:var(--ink); border-color:var(--line); }
+  html[data-theme="dark"] .btn.secondary{ background:var(--card); color:var(--ink); border-color:var(--line); }
+  html[data-theme="dark"] .btn{ background:var(--brand); border-color:var(--brand); }
+  html[data-theme="dark"] .note{ background:var(--slate-soft); }
+  html[data-theme="dark"] .note.ok{ background:#123024; border-color:#1f5a3a; color:#4ADE80; }
+  html[data-theme="dark"] .note.warn{ background:#2a1d10; border-color:#5a3a1a; color:#f5c08a; }
+  html[data-theme="dark"] .note.err{ background:#3a1212; border-color:#7a2a2a; color:#fca5a5; }
+  :root{ --ink:#101B33; --ink-soft:#4B5670; --paper:#F1F3F9; --card:#FFFFFF; --line:#E1E4EC; --brand:#2A4DFF; --brand-soft:#EAF0FF; --brand-text:#1E3ACC; --navy:#101B33;
+         --slate-text:#5B6478; --gold:#D97706; --radius:14px; --shadow:0 1px 2px rgba(16,27,51,.04), 0 4px 14px rgba(16,27,51,.05); }
+  *{box-sizing:border-box;} body{margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--paper); font-size:14px;}
+  .wrap{max-width:900px; margin:0 auto; padding:18px 18px 80px;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+  .back{font-size:13px; font-weight:700; color:var(--brand-text); text-decoration:none;}
+  h1{font-family:'Libre Franklin',sans-serif; font-size:22px; margin:0 0 4px;}
+  .sub{color:var(--ink-soft); margin:0 0 16px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px;}
+  .card h2{font-size:15px; margin:0 0 4px;}
+  .hint{color:var(--ink-soft); font-size:13px; margin:0 0 12px; line-height:1.45;}
+  label{display:block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--slate-text); margin:12px 0 4px;}
+  input[type=text], input[type=date], select, textarea{width:100%; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff;}
+  textarea{min-height:88px; resize:vertical; line-height:1.45;}
+  .row{display:flex; gap:12px;} .row > div{flex:1;}
+  .btn{font:inherit; font-size:13px; font-weight:700; padding:8px 14px; border-radius:8px; border:1px solid var(--navy); background:var(--navy); color:#fff; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px;}
+  .btn.secondary{background:#fff; color:var(--navy);} .btn.small{padding:5px 9px; font-size:12px;} .btn.danger{background:#fff; color:#991b1b; border-color:#fca5a5;}
+  .btn:disabled{opacity:.45; cursor:default;}
+  .drop{border:2px dashed var(--line); border-radius:12px; padding:28px; text-align:center; color:var(--ink-soft); cursor:pointer; transition:border-color .15s, background .15s;}
+  .drop.over{border-color:var(--brand); background:var(--brand-soft);}
+  .drop strong{display:block; color:var(--ink); margin-bottom:4px;}
+  .or{text-align:center; color:var(--slate-text); font-size:12px; margin:12px 0;}
+  .chips{display:flex; flex-wrap:wrap; gap:8px;}
+  .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--line); border-radius:999px; font-size:12.5px; cursor:pointer; user-select:none;}
+  .chip input{margin:0;} .chip.on{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-text); font-weight:700;}
+  table{width:100%; border-collapse:collapse; font-size:13px;} th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-text); padding:6px 6px; border-bottom:1px solid var(--line);}
+  td{padding:6px 6px; border-bottom:1px solid var(--line); vertical-align:top;} td input, td select{padding:6px 8px;}
+  .note{padding:10px 12px; border-radius:8px; font-size:13px; margin-top:10px; border:1px solid; line-height:1.45;}
+  .note.ok{background:#e7f7ee; border-color:#bbf7d0; color:#157a44;} .note.warn{background:#fff7ed; border-color:#fed7aa; color:#7c2d12;} .note.err{background:#fee2e2; border-color:#fca5a5; color:#991b1b;}
+  .note ul{margin:6px 0 0; padding-left:18px;}
+  .idline{font-size:12px; color:var(--slate-text); margin-top:6px;} .idline code{background:var(--paper); padding:2px 6px; border-radius:4px;}
+  .savebar{display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:16px;}
+  .savebar .st{font-size:13px; color:var(--slate-text);}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar"><a class="back" id="back" href="index.html#potential">← Back to Potential Initiatives</a><span class="st" id="who"></span></div>
+  <h1 id="title">New potential initiative</h1>
+  <p class="sub" id="subtitle">Upload a file in the initiative format, review every field, then save.</p>
+
+  <!-- step 1: upload (create only) -->
+  <section class="card" id="upload">
+    <h2>Start from a file</h2>
+    <p class="hint">The file is JSON in the potential-initiative format — usually produced with Claude from your notes. Drop it here or click to choose. You'll review everything before it's saved.</p>
+    <div class="drop" id="drop"><strong>Drop a .json file here</strong>or click to choose one<input type="file" id="file" accept=".json,application/json" class="hidden"></div>
+    <div class="or">— or —</div>
+    <div style="text-align:center"><button class="btn secondary" id="blank">Start with a blank form</button></div>
+    <div class="note err hidden" id="upErr"></div>
+  </section>
+
+  <!-- step 2: review form -->
+  <div id="form" class="hidden">
+    <div class="note ok hidden" id="loadedNote"></div>
+    <div class="note warn hidden" id="problems"></div>
+
+    <section class="card">
+      <h2>Overview</h2>
+      <label for="fName">Name</label><input type="text" id="fName">
+      <div class="idline" id="idLine"></div>
+      <div class="row">
+        <div><label for="fDomain">Proposed domain</label><input type="text" id="fDomain" placeholder="Leave blank if not yet assigned"></div>
+        <div><label for="fStage">Stage</label><select id="fStage"></select></div>
+      </div>
+      <div class="row">
+        <div><label for="fBroughtBy">Brought to MISMO by</label><input type="text" id="fBroughtBy"></div>
+        <div><label for="fDate">Date logged</label><input type="date" id="fDate"></div>
+      </div>
+      <label for="fSummary">Summary</label><textarea id="fSummary"></textarea>
+      <label for="fWhy">Why it was raised</label><textarea id="fWhy"></textarea>
+    </section>
+
+    <section class="card">
+      <h2>Relevant stakeholder types</h2>
+      <p class="hint">From the global list. Organizations of a type that isn't selected stay in the record but are hidden on the initiative's page.</p>
+      <div class="chips" id="typeChips"></div>
+    </section>
+
+    <section class="card">
+      <h2>Organizations</h2>
+      <p class="hint">Who's been approached, and where they stand.</p>
+      <table id="orgTable"><thead><tr><th style="width:24%">Organization</th><th style="width:20%">Type</th><th style="width:16%">Engagement</th><th>Contact</th><th>Barrier</th><th></th></tr></thead><tbody></tbody></table>
+      <div style="margin-top:10px"><button class="btn secondary small" id="orgAdd">+ Add organization</button></div>
+    </section>
+
+    <section class="card">
+      <h2>Status updates</h2>
+      <p class="hint">Newest first. You can also log updates from the initiative's page after it's created.</p>
+      <table id="updTable"><thead><tr><th>What changed</th><th style="width:18%">Recorded by</th><th style="width:22%">When</th><th></th></tr></thead><tbody></tbody></table>
+      <div style="margin-top:10px"><button class="btn secondary small" id="updAdd">+ Add update</button></div>
+    </section>
+
+    <div class="note err hidden" id="saveErr"></div>
+    <div class="savebar">
+      <span class="st" id="saveStatus"></span>
+      <button class="btn secondary" id="download">Download JSON</button>
+      <button class="btn" id="save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const S = window.MismoStore, P = S.potential;
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const editId = new URLSearchParams(location.search).get('id') || '';
+  let rec = null, sha = null, typeKeys = new Set(), allTypes = [], idOverride = '';
+
+  function blank(){ return { name:'', domain:'', stage:'not-started', broughtBy:'', dateLogged:new Date().toISOString().slice(0,10), summary:'', whyRaised:'', stakeholderTypes:[], organizations:[], updates:[] }; }
+  function currentId(){ return editId || idOverride || P.slug($('fName').value); }
+
+  /* ----- form <-> record ----- */
+  function fill(){
+    $('fName').value = rec.name || ''; $('fDomain').value = rec.domain || ''; $('fBroughtBy').value = rec.broughtBy || '';
+    $('fDate').value = rec.dateLogged || ''; $('fSummary').value = rec.summary || ''; $('fWhy').value = rec.whyRaised || '';
+    $('fStage').innerHTML = P.STAGES.map(s => `<option value="${s.key}" ${s.key === (rec.stage||'not-started') ? 'selected' : ''}>${esc(s.label)}</option>`).join('');
+    renderChips(); renderOrgs(); renderUpds(); renderIdLine();
+  }
+  function read(){
+    rec.name = $('fName').value; rec.domain = $('fDomain').value; rec.broughtBy = $('fBroughtBy').value; rec.dateLogged = $('fDate').value;
+    rec.summary = $('fSummary').value; rec.whyRaised = $('fWhy').value; rec.stage = $('fStage').value;
+    rec.stakeholderTypes = [...document.querySelectorAll('#typeChips input:checked')].map(i => i.value);
+    rec.organizations = [...$('orgTable').querySelectorAll('tbody tr')].map(tr => ({ org: tr.querySelector('[data-f=org]').value, type: tr.querySelector('[data-f=type]').value, engagement: tr.querySelector('[data-f=eng]').value, contact: tr.querySelector('[data-f=contact]').value, barrier: tr.querySelector('[data-f=barrier]').value, notes: tr.dataset.notes || '' }));
+    rec.updates = [...$('updTable').querySelectorAll('tbody tr')].map(tr => ({ text: tr.querySelector('[data-f=text]').value, by: tr.querySelector('[data-f=by]').value, at: tr.querySelector('[data-f=at]').value || new Date().toISOString() }));
+    return rec;
+  }
+  function renderIdLine(){
+    $('idLine').innerHTML = editId ? `Id: <code>${esc(editId)}</code> (fixed)` : `Will be saved as <code>${esc(currentId())}</code> — this becomes the page address and can't change later.`;
+  }
+  function renderChips(){
+    const sel = new Set(rec.stakeholderTypes || []);
+    $('typeChips').innerHTML = allTypes.map(t => `<label class="chip ${sel.has(t.key) ? 'on' : ''}"><input type="checkbox" value="${esc(t.key)}" ${sel.has(t.key) ? 'checked' : ''}>${esc(t.name)}</label>`).join('') || '<span class="hint">The global type list could not be loaded.</span>';
+    $('typeChips').querySelectorAll('input').forEach(i => i.addEventListener('change', () => { i.closest('.chip').classList.toggle('on', i.checked); }));
+  }
+  const typeOpts = v => allTypes.map(t => `<option value="${esc(t.key)}" ${t.key === v ? 'selected' : ''}>${esc(t.name)}</option>`).join('') + (v && !typeKeys.has(v) ? `<option value="${esc(v)}" selected>${esc(v)} (unknown)</option>` : '');
+  const engOpts = v => P.ENGAGEMENTS.map(e => `<option value="${e.key}" ${e.key === v ? 'selected' : ''}>${esc(e.label)}</option>`).join('');
+  function renderOrgs(){
+    $('orgTable').querySelector('tbody').innerHTML = (rec.organizations || []).map((o, i) => `<tr data-notes="${esc(o.notes||'')}">
+      <td><input type="text" data-f="org" value="${esc(o.org)}"></td><td><select data-f="type">${typeOpts(o.type)}</select></td><td><select data-f="eng">${engOpts(o.engagement)}</select></td>
+      <td><input type="text" data-f="contact" value="${esc(o.contact||'')}"></td><td><input type="text" data-f="barrier" value="${esc(o.barrier||'')}"></td>
+      <td><button class="btn danger small" data-rm-org="${i}">×</button></td></tr>`).join('');
+  }
+  function renderUpds(){
+    $('updTable').querySelector('tbody').innerHTML = (rec.updates || []).map((u, i) => `<tr>
+      <td><input type="text" data-f="text" value="${esc(u.text)}"></td><td><input type="text" data-f="by" value="${esc(u.by||'')}"></td><td><input type="text" data-f="at" value="${esc(u.at||'')}" placeholder="ISO date"></td>
+      <td><button class="btn danger small" data-rm-upd="${i}">×</button></td></tr>`).join('');
+  }
+  $('orgTable').addEventListener('click', e => { const b = e.target.closest('[data-rm-org]'); if (!b) return; read(); rec.organizations.splice(+b.dataset.rmOrg, 1); renderOrgs(); });
+  $('updTable').addEventListener('click', e => { const b = e.target.closest('[data-rm-upd]'); if (!b) return; read(); rec.updates.splice(+b.dataset.rmUpd, 1); renderUpds(); });
+  $('orgAdd').addEventListener('click', () => { read(); rec.organizations.push({ org:'', type: rec.stakeholderTypes[0] || allTypes[0]?.key || '', engagement:'not-contacted', contact:'', barrier:'', notes:'' }); renderOrgs(); });
+  $('updAdd').addEventListener('click', () => { read(); rec.updates.unshift({ text:'', by:S.keyName(), at:new Date().toISOString() }); renderUpds(); });
+  $('fName').addEventListener('input', renderIdLine);
+
+  /* ----- upload ----- */
+  function showForm(){ $('upload').classList.add('hidden'); $('form').classList.remove('hidden'); }
+  function loadFromObject(obj, sourceLabel){
+    const v = P.validate(obj, typeKeys);
+    rec = { ...blank(), ...v.content };
+    if (obj && typeof obj.id === 'string' && /^[a-z0-9][a-z0-9-]{0,39}$/.test(obj.id)) idOverride = obj.id;
+    showForm(); fill();
+    $('loadedNote').textContent = `Loaded from ${sourceLabel}. Review every field below; nothing is saved until you click Save.`; $('loadedNote').classList.remove('hidden');
+    showProblems(v.problems);
+  }
+  function showProblems(list){
+    const el = $('problems');
+    if (!list.length) { el.classList.add('hidden'); return; }
+    el.innerHTML = `<strong>${list.length} thing${list.length === 1 ? '' : 's'} to fix before this can be saved:</strong><ul>${list.map(p => `<li>${esc(p)}</li>`).join('')}</ul>`; el.classList.remove('hidden');
+  }
+  function handleFile(file){
+    $('upErr').classList.add('hidden');
+    const r = new FileReader();
+    r.onload = () => { try { loadFromObject(JSON.parse(r.result), file.name); } catch (e) { $('upErr').textContent = `${file.name} isn't valid JSON: ${e.message}`; $('upErr').classList.remove('hidden'); } };
+    r.readAsText(file);
+  }
+  $('drop').addEventListener('click', () => $('file').click());
+  $('file').addEventListener('change', () => { if ($('file').files[0]) handleFile($('file').files[0]); });
+  ['dragenter','dragover'].forEach(ev => $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
+  $('drop').addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+  $('blank').addEventListener('click', () => { rec = blank(); showForm(); fill(); });
+
+  /* ----- download / save ----- */
+  $('download').addEventListener('click', () => {
+    read();
+    const v = P.validate(rec, typeKeys);
+    const out = { id: currentId(), ...v.content };
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2) + '\n'], { type:'application/json' })); a.download = `${currentId()}.json`; a.click();
+  });
+  $('save').addEventListener('click', async () => {
+    read(); $('saveErr').classList.add('hidden');
+    const v = P.validate(rec, typeKeys);
+    showProblems(v.problems);
+    if (v.problems.length) { $('saveStatus').textContent = 'Fix the items above first'; return; }
+    if (!S.hasKey() && !(S.promptForKey() && S.hasKey())) { $('saveErr').textContent = S.explain('NO_KEY'); $('saveErr').classList.remove('hidden'); return; }
+    const id = currentId();
+    $('save').disabled = true; $('saveStatus').textContent = 'Saving…';
+    const r = await P.put(id, v.content, sha);
+    $('save').disabled = false;
+    if (r.ok) { $('saveStatus').textContent = 'Saved'; location.href = `potential.html?id=${encodeURIComponent(id)}`; return; }
+    $('saveStatus').textContent = '';
+    const msg = r.reason === 'NO_RELAY'
+      ? S.explain('NO_RELAY') + ' You can Download JSON and have it committed by hand in the meantime.'
+      : r.reason === 'REJECTED' && r.detail ? `Not saved: ${r.detail.error}${r.detail.type ? ' (' + r.detail.type + ')' : ''}${r.detail.org ? ' — ' + r.detail.org : ''}.` : S.explain(r.reason);
+    $('saveErr').textContent = msg; $('saveErr').classList.remove('hidden');
+  });
+
+  /* ----- boot ----- */
+  (async () => {
+    await S.types.load();
+    typeKeys = S.typeKeys();
+    allTypes = [...typeKeys].map(k => ({ key:k, name:S.typeName(k) })).sort((a, b) => a.name.localeCompare(b.name));
+    if (S.hasKey()) $('who').textContent = 'Saving as ' + S.keyName();
+    if (editId) {
+      $('title').textContent = 'Edit potential initiative'; $('subtitle').textContent = 'Change any field, then save. The id stays the same.';
+      $('back').href = `potential.html?id=${encodeURIComponent(editId)}`; $('back').textContent = '← Back to the initiative';
+      const r = await P.get(editId);
+      if (!r.ok || !r.data) { $('upload').innerHTML = `<div class="note err">Could not load “${esc(editId)}”.</div>`; return; }
+      sha = r.sha; rec = { ...blank(), ...r.data }; delete rec.savedBy; delete rec.savedAt;
+      showForm(); fill();
+    }
+  })();
+})();
+</script>
+</body>
+</html>

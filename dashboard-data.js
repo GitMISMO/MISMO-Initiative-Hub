@@ -288,6 +288,122 @@
     } catch (e) { return { ok: false, reason: 'NETWORK' }; }
   }
 
+  /* ---------- potential initiatives ---------- */
+
+  /* One record per initiative at data/potential/<id>.json, listed by data/potential/index.json
+   * (static hosting can't list a directory). Viewers read both from the same origin; editors
+   * read through the relay for freshness and the SHA. The relay validates on write; the
+   * browser mirrors the same rules so the wizard can show problems before anyone clicks Save. */
+  var POT = {
+    STAGES: [
+      { key: 'not-started',  label: 'Not Started' },
+      { key: 'in-progress',  label: 'In Progress' },
+      { key: 'in-approvals', label: 'In Approvals' },
+      { key: 'kickoff-set',  label: 'Kick off Set' },
+      { key: 'launched',     label: 'Launched' }
+    ],
+    ENGAGEMENTS: [
+      { key: 'not-contacted', label: 'Not Contacted', color: '#8B94A7' },
+      { key: 'declined',      label: 'Declined',      color: '#C2255C' },
+      { key: 'contacted',     label: 'Contacted',     color: '#D97706' },
+      { key: 'interested',    label: 'Interested',    color: '#EAB308' },
+      { key: 'committed',     label: 'Committed',     color: '#059669' }
+    ]
+  };
+  function potLabel(list, key) { var f = list.find(function (x) { return x.key === key; }); return f ? f.label : key; }
+
+  async function potentialList() {
+    try {
+      var res = await fetch('data/potential/index.json?t=' + Date.now(), { cache: 'no-store' });
+      if (res.status === 404) return { ok: true, items: [] };
+      if (!res.ok) return { ok: false, reason: 'HTTP_' + res.status };
+      var idx = await res.json();
+      var ids = Array.isArray(idx.ids) ? idx.ids : [];
+      var items = await Promise.all(ids.map(async function (id) {
+        try {
+          var r = await fetch('data/potential/' + encodeURIComponent(id) + '.json?t=' + Date.now(), { cache: 'no-store' });
+          return r.ok ? await r.json() : null;
+        } catch (e) { return null; }
+      }));
+      return { ok: true, items: items.filter(Boolean) };
+    } catch (e) { return { ok: false, reason: 'NETWORK' }; }
+  }
+
+  async function potentialGet(id) {
+    if (hasKey() && RELAY_URL) {
+      try {
+        var res = await relay('/potential/' + encodeURIComponent(id));
+        if (res.ok) { var b = await res.json(); return { ok: true, data: b.data, sha: b.sha, fresh: true }; }
+      } catch (e) { /* fall through to the deployed file */ }
+    }
+    try {
+      var r = await fetch('data/potential/' + encodeURIComponent(id) + '.json?t=' + Date.now(), { cache: 'no-store' });
+      if (r.status === 404) return { ok: true, data: null, sha: null };
+      if (!r.ok) return { ok: false, reason: 'HTTP_' + r.status };
+      var text = await r.text();
+      return { ok: true, data: JSON.parse(text), sha: await blobSha(text), fresh: false };
+    } catch (e) { return { ok: false, reason: 'NETWORK' }; }
+  }
+
+  async function potentialPut(id, content, sha) {
+    if (!hasKey()) return { ok: false, reason: 'NO_KEY' };
+    if (!RELAY_URL) return { ok: false, reason: 'NO_RELAY' };
+    try {
+      var res = await relay('/potential/' + encodeURIComponent(id), { method: 'PUT', body: { content: content, sha: sha || null } });
+      var body = null; try { body = await res.json(); } catch (e) {}
+      if (res.status === 401) return { ok: false, reason: (body && body.error === 'KEY_EXPIRED') ? 'KEY_EXPIRED' : 'KEY_BAD' };
+      if (res.status === 403) return { ok: false, reason: 'ORIGIN' };
+      if (res.status === 409) return { ok: false, reason: 'CONFLICT' };
+      if (res.status === 400) return { ok: false, reason: 'REJECTED', detail: body };
+      if (res.status === 502) return { ok: false, reason: (body && body.error === 'TOKEN') ? 'RELAY_TOKEN' : 'RELAY' };
+      if (!res.ok) return { ok: false, reason: 'HTTP_' + res.status };
+      return { ok: true, sha: body.sha, indexed: body.indexed };
+    } catch (e) { return { ok: false, reason: 'NETWORK' }; }
+  }
+
+  /* Mirrors the relay's rules. Returns { problems: [string], content: normalised }. Problems
+   * are shown in the wizard; an empty list means the relay will accept it. */
+  function potentialValidate(raw, typeKeys) {
+    var problems = [];
+    var str = function (v, max) { return typeof v === 'string' ? v.trim().slice(0, max) : ''; };
+    var r = raw && typeof raw === 'object' ? raw : {};
+    var name = str(r.name, 160); if (!name) problems.push('A name is required.');
+    var stage = str(r.stage, 20) || 'not-started';
+    if (!POT.STAGES.some(function (x) { return x.key === stage; })) problems.push('Stage "' + stage + '" is not one of: ' + POT.STAGES.map(function (x) { return x.key; }).join(', ') + '.');
+    var dateLogged = str(r.dateLogged, 10);
+    if (dateLogged && !/^\d{4}-\d{2}-\d{2}$/.test(dateLogged)) problems.push('dateLogged must be YYYY-MM-DD.');
+    var types = [];
+    (Array.isArray(r.stakeholderTypes) ? r.stakeholderTypes : []).forEach(function (t) {
+      var k = str(t, 80);
+      if (!typeKeys.has(k)) problems.push('Stakeholder type "' + k + '" is not in the global list.');
+      else if (types.indexOf(k) < 0) types.push(k);
+    });
+    var orgs = [];
+    (Array.isArray(r.organizations) ? r.organizations : []).forEach(function (o, i) {
+      var org = str(o && o.org, 120), type = str(o && o.type, 80), eng = str(o && o.engagement, 20) || 'not-contacted';
+      if (!org) problems.push('Organization #' + (i + 1) + ' has no name.');
+      if (!typeKeys.has(type)) problems.push('Organization "' + (org || '#' + (i + 1)) + '" has unknown type "' + type + '".');
+      if (!POT.ENGAGEMENTS.some(function (x) { return x.key === eng; })) problems.push('Organization "' + org + '" has unknown engagement "' + eng + '".');
+      orgs.push({ org: org, type: type, engagement: eng, contact: str(o && o.contact, 160), barrier: str(o && o.barrier, 400), notes: str(o && o.notes, 2000) });
+    });
+    var updates = [];
+    (Array.isArray(r.updates) ? r.updates : []).forEach(function (u, i) {
+      var text = str(u && u.text, 2000), by = str(u && u.by, 120), at = str(u && u.at, 40);
+      if (!text) problems.push('Update #' + (i + 1) + ' is empty.');
+      if (at && !isFinite(Date.parse(at))) problems.push('Update #' + (i + 1) + ' has an unreadable date.');
+      updates.push({ text: text, by: by, at: at || new Date().toISOString() });
+    });
+    updates.sort(function (a, b) { return Date.parse(b.at) - Date.parse(a.at); });
+    return { problems: problems, content: {
+      name: name, domain: str(r.domain, 80), stage: stage, summary: str(r.summary, 4000), whyRaised: str(r.whyRaised, 4000),
+      broughtBy: str(r.broughtBy, 200), dateLogged: dateLogged, stakeholderTypes: types, organizations: orgs, updates: updates
+    } };
+  }
+  function potentialSlug(name) {
+    return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'initiative';
+  }
+  function typeKeySet() { return new Set(Object.keys(typeNames)); }
+
   /* ---------- facilitator management (admin key only; used by the admin panel) ---------- */
 
   async function facilitatorsGet() {
@@ -335,6 +451,10 @@
   window.MismoStore = {
     facilitators: { get: facilitatorsGet, put: facilitatorsPut, generatePasscode: generatePasscode, sha256Hex: sha256Hex },
     config: { get: configGet, put: configPut },
+    potential: { list: potentialList, get: potentialGet, put: potentialPut, validate: potentialValidate, slug: potentialSlug,
+                 STAGES: POT.STAGES, ENGAGEMENTS: POT.ENGAGEMENTS,
+                 stageLabel: function (k) { return potLabel(POT.STAGES, k); }, engagementLabel: function (k) { return potLabel(POT.ENGAGEMENTS, k); } },
+    typeKeys: typeKeySet,
     types: { load: typesLoad },
     typeName: typeName,
     getKey: getKey,

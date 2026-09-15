@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Potential Initiative — MISMO Initiative Hub</title>
+<!--
+  One page renders every potential initiative from data/potential/<id>.json (?id=…).
+  Creating a new initiative is a data commit, not a new HTML file — so every one of
+  these looks the same by construction and none of them depends on the dashboard
+  template. Layout follows the approved expanded-view mockup: header with stage rail,
+  Overview, Status Updates, Stakeholder Engagement.
+
+  Editing here is limited to what changes week to week: log an update, change an
+  organization's engagement, add an organization. Everything else (name, summary,
+  which stakeholder types are relevant, and so on) is edited in potential-edit.html.
+  Saves go through the relay with the same key and the same conflict lock as the
+  dashboards.
+-->
+<script>
+  // Follow the hub's theme choice before first paint, same key the hub uses.
+  try { if (localStorage.getItem('mismo-hub-theme') === 'dark') document.documentElement.setAttribute('data-theme','dark'); } catch (e) {}
+</script>
+<script src="dashboard-data.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  html[data-theme="dark"]{ --ink:#E8EAF0; --ink-soft:#A0A8C0; --paper:#0B0F1C; --card:#161C30; --line:#2A3150; --brand:#5B85FF; --brand-soft:#1A2745; --brand-text:#9AB8FF;
+         --slate:#64748B; --slate-soft:#1F2740; --slate-text:#8B94A7; --warnbg:#2a1d10; --warnline:#5a3a1a; --warn:#f5c08a; }
+  html[data-theme="dark"] .modal, html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea{ background:var(--card); color:var(--ink); border-color:var(--line); }
+  html[data-theme="dark"] .btn.secondary{ background:var(--card); color:var(--ink); border-color:var(--line); }
+  html[data-theme="dark"] .btn{ background:var(--brand); border-color:var(--brand); }
+  html[data-theme="dark"] .note{ background:var(--slate-soft); }
+  html[data-theme="dark"] .note.ok{ background:#123024; border-color:#1f5a3a; color:#4ADE80; }
+  html[data-theme="dark"] .note.warn{ background:#2a1d10; border-color:#5a3a1a; color:#f5c08a; }
+  html[data-theme="dark"] .note.err{ background:#3a1212; border-color:#7a2a2a; color:#fca5a5; }
+  :root{ --ink:#101B33; --ink-soft:#4B5670; --paper:#F1F3F9; --card:#FFFFFF; --line:#E1E4EC; --brand:#2A4DFF; --brand-soft:#EAF0FF; --brand-text:#1E3ACC;
+         --navy:#101B33; --slate:#8B94A7; --slate-soft:#EEF0F4; --slate-text:#5B6478; --gold:#D97706; --violet:#7C3AED; --emerald:#059669; --rose:#C2255C;
+         --warnbg:#fff7ed; --warnline:#fed7aa; --warn:#7c2d12; --radius:14px; --shadow:0 1px 2px rgba(16,27,51,.04), 0 4px 14px rgba(16,27,51,.05); }
+  *{box-sizing:border-box;} body{margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--paper); font-size:14px;}
+  .wrap{max-width:1040px; margin:0 auto; padding:18px 18px 60px;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+  .back{font-size:13px; font-weight:700; color:var(--brand-text); text-decoration:none;}
+  .btn{font:inherit; font-size:13px; font-weight:700; padding:8px 14px; border-radius:8px; border:1px solid var(--navy); background:var(--navy); color:#fff; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px;}
+  .btn.secondary{background:var(--card); color:var(--navy);}
+  .btn.small{padding:5px 10px; font-size:12px;}
+  .btn:disabled{opacity:.45; cursor:default;}
+  .btn.dirty{background:var(--gold); border-color:var(--gold);}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:14px;}
+  .head{padding:20px 22px 16px;}
+  .ptop{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
+  .ptop h1{margin:0; font-family:'Libre Franklin',sans-serif; font-size:24px; font-weight:800;}
+  .dom{flex:0 0 auto; font-size:12px; font-weight:700; padding:4px 11px; border-radius:999px; background:var(--brand-soft); color:var(--brand-text);}
+  .dom.tbd{background:var(--slate-soft); color:var(--slate-text); font-style:italic;}
+  .steps{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:14px;}
+  .step{font-size:11px; font-weight:700; text-align:center; color:var(--slate); line-height:1.2;}
+  .step::before{content:''; display:block; height:5px; border-radius:3px; background:var(--slate-soft); margin-bottom:6px;}
+  .step.on{color:var(--brand-text);} .step.on::before{background:var(--brand);}
+  .step.on.s-in-approvals{color:var(--gold);} .step.on.s-in-approvals::before{background:var(--gold);}
+  .step.on.s-kickoff-set{color:var(--violet);} .step.on.s-kickoff-set::before{background:var(--violet);}
+  .step.on.s-launched{color:var(--emerald);} .step.on.s-launched::before{background:var(--emerald);}
+  .step.on.s-not-started{color:var(--slate-text);} .step.on.s-not-started::before{background:var(--slate);}
+  .sec{background:var(--navy); color:#fff; font-family:'Libre Franklin',sans-serif; font-weight:700; font-size:13px; letter-spacing:.06em; text-transform:uppercase; padding:12px 22px; border-radius:var(--radius) var(--radius) 0 0;}
+  .body{padding:18px 22px;}
+  .lbl{font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--slate-text); margin:0 0 5px;}
+  .ov{display:grid; grid-template-columns:1fr 240px; gap:22px;}
+  .ov p{margin:0 0 14px; line-height:1.55;}
+  .ov .meta > div{margin-bottom:12px;}
+  .muted{color:var(--slate-text); font-style:italic;}
+  .addrow{display:flex; gap:8px; margin-bottom:14px;}
+  .addrow input{flex:1; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px;}
+  .addrow input.by{flex:0 0 180px;}
+  .upd{position:relative; padding:0 0 12px 22px; border-left:2px solid var(--line); margin-left:6px;}
+  .upd::before{content:''; position:absolute; left:-7px; top:4px; width:12px; height:12px; border-radius:50%; background:var(--card); border:2px solid var(--slate);}
+  .upd.latest::before{border-color:var(--brand); background:var(--brand-soft);}
+  .upd .t{line-height:1.5;}
+  .upd .w{font-size:12px; color:var(--slate-text); margin-top:3px;} .upd .w strong{color:var(--ink-soft);}
+  .upd.pending .w::after{content:' · not saved yet'; color:var(--gold); font-weight:700;}
+  .eng{display:grid; grid-template-columns:200px 1fr; gap:14px;}
+  .engtop{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+  .engtop h3{margin:0; font-size:15px;}
+  .engtop input{font:inherit; padding:7px 10px; border:1px solid var(--line); border-radius:8px; width:220px;}
+  .side{border:1px solid var(--line); border-radius:10px; padding:12px; align-self:start;}
+  .side .lbl{margin-bottom:8px;}
+  .trow{padding:8px 8px; border-radius:8px; cursor:pointer; margin-bottom:2px;}
+  .trow:hover{background:var(--paper);} .trow.on{background:var(--brand-soft);}
+  .trow .n{display:flex; justify-content:space-between; font-weight:700; font-size:12.5px;}
+  .trow .n span:last-child{color:var(--slate-text); font-weight:600;}
+  .bar{display:flex; height:5px; border-radius:3px; overflow:hidden; background:var(--slate-soft); margin-top:5px;}
+  .bar div{height:100%;}
+  .legend{margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:11.5px; color:var(--slate-text);}
+  .legend div{display:flex; align-items:center; gap:6px; margin:3px 0;} .legend i{width:8px; height:8px; border-radius:2px; display:inline-block;}
+  .orow{display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; margin-bottom:8px;}
+  .orow .on{font-weight:700; flex:1;} .orow .on small{font-weight:600; color:var(--gold); margin-left:8px;}
+  .orow .ct{font-size:12.5px; color:var(--slate-text);}
+  .orow select{font:inherit; font-size:12.5px; font-weight:700; padding:5px 8px; border-radius:999px; border:1px solid var(--line);}
+  .sum{margin-top:12px; padding:10px 14px; border-radius:10px; background:var(--warnbg); border:1px solid var(--warnline); color:var(--warn); font-size:13px; line-height:1.45;}
+  .sum strong{font-weight:800;}
+  .note{padding:10px 12px; border-radius:8px; font-size:13px; margin-top:10px; border:1px solid var(--line); background:var(--paper); color:var(--ink-soft);}
+  .note.err{background:#fee2e2; border-color:#fca5a5; color:#991b1b;}
+  .hidden{display:none !important;}
+  .overlay{position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; padding:16px;} .overlay.open{display:flex;}
+  .modal{background:#fff; border-radius:12px; padding:20px; max-width:440px; width:100%;}
+  .modal h3{margin:0 0 4px;} .modal label{display:block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--slate-text); margin:12px 0 4px;}
+  .modal input, .modal select{width:100%; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px;}
+  .modal .acts{display:flex; justify-content:flex-end; gap:8px; margin-top:16px;}
+  @media (max-width:760px){ .ov,.eng{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="index.html#potential">← Back to Potential Initiatives</a>
+    <div style="display:flex; gap:8px; align-items:center">
+      <span id="status" style="font-size:12.5px; color:var(--slate-text)"></span>
+      <a class="btn secondary" id="editLink" href="#">Edit details</a>
+      <button class="btn" id="saveBtn" disabled>Save</button>
+    </div>
+  </div>
+  <div id="app"><div class="card"><div class="body muted">Loading…</div></div></div>
+  <div class="note err hidden" id="err"></div>
+</div>
+
+<div class="overlay" id="addOrg">
+  <div class="modal">
+    <h3>Add an organization</h3>
+    <label for="aoName">Organization</label><input type="text" id="aoName">
+    <label for="aoType">Stakeholder type</label><select id="aoType"></select>
+    <label for="aoEng">Engagement</label><select id="aoEng"></select>
+    <label for="aoContact">Contact (optional)</label><input type="text" id="aoContact">
+    <div class="acts"><button class="btn secondary" id="aoCancel">Cancel</button><button class="btn" id="aoOk">Add</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const S = window.MismoStore, P = S.potential;
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const id = new URLSearchParams(location.search).get('id') || '';
+  let rec = null, sha = null, dirty = false, activeType = null, search = '';
+
+  function fmtWhen(iso){ const d = new Date(iso); if (isNaN(d)) return ''; return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) + ' · ' + d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); }
+  function fmtDate(s){ if (!s) return ''; const d = new Date(s + 'T00:00:00'); return isNaN(d) ? s : d.toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}); }
+  function engColor(k){ const e = P.ENGAGEMENTS.find(x => x.key === k); return e ? e.color : '#8B94A7'; }
+  function setDirty(v){ dirty = v; $('saveBtn').disabled = !v; $('saveBtn').classList.toggle('dirty', v); $('status').textContent = v ? 'Unsaved changes' : ''; }
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  function render(){
+    const types = rec.stakeholderTypes || [];
+    if (!activeType || !types.includes(activeType)) activeType = types[0] || null;
+    const visible = (rec.organizations || []).filter(o => types.includes(o.type));
+    const hiddenCount = (rec.organizations || []).length - visible.length;
+    const byType = t => visible.filter(o => o.type === t);
+    const q = search.toLowerCase();
+    const rows = (activeType ? byType(activeType) : []).filter(o => !q || (o.org + ' ' + (o.contact||'')).toLowerCase().includes(q));
+    const committed = visible.filter(o => o.engagement === 'committed');
+    const typesWithCommit = new Set(committed.map(o => o.type));
+    const noCommit = types.filter(t => !typesWithCommit.has(t));
+    const updates = rec.updates || [];
+
+    $('app').innerHTML = `
+      <div class="card head">
+        <div class="ptop"><h1>${esc(rec.name)}</h1>${rec.domain ? `<span class="dom">${esc(rec.domain)}</span>` : `<span class="dom tbd">Domain: TBD</span>`}</div>
+        <div class="steps">${P.STAGES.map(s => `<div class="step ${s.key === rec.stage ? 'on s-' + s.key : ''}">${esc(s.label)}</div>`).join('')}</div>
+      </div>
+
+      <div class="card"><div class="sec">Overview</div><div class="body ov">
+        <div>
+          <div class="lbl">Summary</div>${rec.summary ? `<p>${esc(rec.summary)}</p>` : `<p class="muted">Not recorded.</p>`}
+          <div class="lbl">Why it was raised</div>${rec.whyRaised ? `<p>${esc(rec.whyRaised)}</p>` : `<p class="muted">Not recorded.</p>`}
+        </div>
+        <div class="meta">
+          <div><div class="lbl">Brought to MISMO by</div>${rec.broughtBy ? esc(rec.broughtBy) : '<span class="muted">Not recorded</span>'}</div>
+          <div><div class="lbl">Date logged</div>${rec.dateLogged ? esc(fmtDate(rec.dateLogged)) : '<span class="muted">Not recorded</span>'}</div>
+          <div><div class="lbl">Proposed domain</div>${rec.domain ? esc(rec.domain) : '<span class="muted">Not yet assigned</span>'}</div>
+          <div><div class="lbl">Status updates</div>${updates.length} logged</div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="sec">Status updates</div><div class="body">
+        <div class="addrow">
+          <input type="text" class="by" id="updBy" placeholder="Recorded by…" value="${esc(S.keyName())}">
+          <input type="text" id="updText" placeholder="What changed?">
+          <button class="btn" id="updAdd">Add</button>
+        </div>
+        ${updates.length ? updates.map((u, i) => `<div class="upd ${i === 0 ? 'latest' : ''} ${u._pending ? 'pending' : ''}"><div class="t">${esc(u.text)}</div><div class="w">${u.by ? `<strong>${esc(u.by)}</strong> · ` : ''}${esc(fmtWhen(u.at))}</div></div>`).join('') : `<div class="muted">No updates logged yet.</div>`}
+      </div></div>
+
+      <div class="card"><div class="sec">Stakeholder engagement</div><div class="body">
+        ${types.length ? `
+        <div class="engtop"><h3>${esc(activeType ? S.typeName(activeType) : '')}</h3><div style="display:flex;gap:8px"><input type="text" id="search" placeholder="Search org or contact…" value="${esc(search)}"><button class="btn" id="orgAdd" title="Add an organization">+</button></div></div>
+        <div class="eng">
+          <div class="side"><div class="lbl">At a glance — every type</div>
+            ${types.map(t => { const os = byType(t); const n = os.length; return `<div class="trow ${t === activeType ? 'on' : ''}" data-type="${esc(t)}"><div class="n"><span>${esc(S.typeName(t))}</span><span>${n}</span></div><div class="bar">${n ? P.ENGAGEMENTS.map(e => { const c = os.filter(o => o.engagement === e.key).length; return c ? `<div style="width:${(c/n*100).toFixed(1)}%;background:${e.color}"></div>` : ''; }).join('') : ''}</div></div>`; }).join('')}
+            <div class="legend">${P.ENGAGEMENTS.map(e => `<div><i style="background:${e.color}"></i>${esc(e.label)}</div>`).join('')}</div>
+          </div>
+          <div>
+            ${rows.length ? rows.map(o => { const idx = rec.organizations.indexOf(o); return `<div class="orow"><span class="on">${esc(o.org)}${o.barrier ? `<small title="${esc(o.barrier)}">Barrier</small>` : ''}</span>${o.contact ? `<span class="ct">${esc(o.contact)}</span>` : ''}<select data-eng="${idx}">${P.ENGAGEMENTS.map(e => `<option value="${e.key}" ${e.key === o.engagement ? 'selected' : ''}>${esc(e.label)}</option>`).join('')}</select></div>`; }).join('') : `<div class="muted">${q ? 'No organizations match.' : 'No organizations of this type yet.'}</div>`}
+          </div>
+        </div>
+        <div class="sum"><strong>${committed.length} of ${visible.length} organization${visible.length === 1 ? '' : 's'} committed, across ${typesWithCommit.size} of ${types.length} relevant stakeholder type${types.length === 1 ? '' : 's'}.</strong> ${noCommit.length ? `No commitment yet from: ${noCommit.map(t => esc(S.typeName(t))).join(', ')}. ` : ''}Chartering generally needs more than one type represented.</div>
+        ${hiddenCount ? `<div class="note">${hiddenCount} organization${hiddenCount === 1 ? ' is' : 's are'} hidden because their stakeholder type isn't selected for this initiative. Use <em>Edit details</em> to change which types are relevant.</div>` : ''}
+        ` : `<div class="muted">No stakeholder types selected yet. Use <em>Edit details</em> to choose which types are relevant to this initiative.</div>`}
+      </div></div>`;
+
+    document.querySelectorAll('.trow').forEach(r => r.addEventListener('click', () => { activeType = r.dataset.type; render(); }));
+    const s = $('search'); if (s) s.addEventListener('input', () => { search = s.value; render(); const n = $('search'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); });
+    document.querySelectorAll('[data-eng]').forEach(sel => sel.addEventListener('change', () => { rec.organizations[+sel.dataset.eng].engagement = sel.value; setDirty(true); render(); }));
+    $('updAdd').addEventListener('click', () => {
+      const text = $('updText').value.trim(), by = $('updBy').value.trim();
+      if (!text) return;
+      rec.updates = [{ text, by, at: new Date().toISOString(), _pending: true }, ...(rec.updates || [])];
+      setDirty(true); render();
+    });
+    $('updText') && $('updText').addEventListener('keydown', e => { if (e.key === 'Enter') $('updAdd').click(); });
+    const add = $('orgAdd'); if (add) add.addEventListener('click', openAddOrg);
+  }
+
+  function openAddOrg(){
+    $('aoType').innerHTML = (rec.stakeholderTypes || []).map(t => `<option value="${esc(t)}" ${t === activeType ? 'selected' : ''}>${esc(S.typeName(t))}</option>`).join('');
+    $('aoEng').innerHTML = P.ENGAGEMENTS.map(e => `<option value="${e.key}">${esc(e.label)}</option>`).join('');
+    $('aoName').value = ''; $('aoContact').value = '';
+    $('addOrg').classList.add('open'); $('aoName').focus();
+  }
+  $('aoCancel').addEventListener('click', () => $('addOrg').classList.remove('open'));
+  $('aoOk').addEventListener('click', () => {
+    const org = $('aoName').value.trim(); if (!org) return;
+    rec.organizations = [...(rec.organizations || []), { org, type: $('aoType').value, engagement: $('aoEng').value, contact: $('aoContact').value.trim(), barrier: '', notes: '' }];
+    activeType = $('aoType').value;
+    $('addOrg').classList.remove('open'); setDirty(true); render();
+  });
+
+  $('saveBtn').addEventListener('click', async () => {
+    if (!S.hasKey() && !(S.promptForKey() && S.hasKey())) { alert(S.explain('NO_KEY')); return; }
+    $('status').textContent = 'Saving…'; $('saveBtn').disabled = true;
+    const content = { ...rec }; delete content.savedBy; delete content.savedAt;
+    content.updates = (content.updates || []).map(({ _pending, ...u }) => u);
+    const r = await P.put(id, content, sha);
+    if (r.ok) { sha = r.sha; rec.updates = content.updates; setDirty(false); $('status').textContent = 'Saved'; render(); return; }
+    setDirty(true);
+    const msg = r.reason === 'REJECTED' && r.detail ? `Not saved: ${r.detail.error}${r.detail.type ? ' (' + r.detail.type + ')' : ''}${r.detail.org ? ' — ' + r.detail.org : ''}.` : S.explain(r.reason);
+    $('err').textContent = msg; $('err').classList.remove('hidden');
+  });
+
+  (async () => {
+    if (!id) { $('app').innerHTML = '<div class="card"><div class="body">No initiative specified.</div></div>'; return; }
+    $('editLink').href = 'potential-edit.html?id=' + encodeURIComponent(id);
+    await S.types.load();
+    const r = await P.get(id);
+    if (!r.ok) { $('app').innerHTML = `<div class="card"><div class="body">Could not load this initiative (${esc(r.reason)}).</div></div>`; return; }
+    if (!r.data) { $('app').innerHTML = `<div class="card"><div class="body">There is no potential initiative with the id “${esc(id)}”.</div></div>`; return; }
+    rec = r.data; sha = r.sha; document.title = rec.name + ' — MISMO Initiative Hub';
+    render();
+  })();
+})();
+</script>
+</body>
+</html>

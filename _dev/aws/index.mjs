@@ -32,6 +32,11 @@
  *                         The admin entry is preserved as-is; it cannot be changed
  *                         through this route, so the admin can't lock themselves out.
  *                         To rotate the admin key, edit facilitators.json directly.
+ *   GET  /potential/{id}  Read data/potential/{id}.json with its SHA.       facilitator+
+ *   PUT  /potential/{id}  Create or update one. Body: {content, sha}.       facilitator+
+ *                         Validated (stage, engagement, stakeholder types against
+ *                         stakeholder-types.json). On create, the id is added to
+ *                         data/potential/index.json, which is what the hub lists.
  *   GET  /config/{name}   Read a global config file with its SHA.           admin
  *   PUT  /config/{name}   Replace it. Body: {content, sha}. Validated.      admin
  *                         Only names in CONFIG_FILES are served. For stakeholder-types,
@@ -84,6 +89,53 @@ const CONFIG_FILES = {
   }
 };
 const SHA256_HEX = /^[0-9a-f]{64}$/;
+const POTENTIAL_INDEX = 'data/potential/index.json';
+const STAGES = new Set(['not-started', 'in-progress', 'in-approvals', 'kickoff-set', 'launched']);
+const ENGAGEMENTS = new Set(['not-contacted', 'declined', 'contacted', 'interested', 'committed']);
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/* A potential-initiative record, checked field by field. Returns {content} or {error, …}.
+ * `typeKeys` is the set of keys in stakeholder-types.json; anything else is refused so a
+ * record can't reference a type the admin panel doesn't know about. */
+function validatePotential(id, body, typeKeys) {
+  if (!body || typeof body !== 'object') return { error: 'BAD_CONTENT' };
+  const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const name = str(body.name, 160);
+  if (!name) return { error: 'BAD_NAME' };
+  const stage = str(body.stage, 20) || 'not-started';
+  if (!STAGES.has(stage)) return { error: 'BAD_STAGE', stage };
+  const dateLogged = str(body.dateLogged, 10);
+  if (dateLogged && !ISO_DATE.test(dateLogged)) return { error: 'BAD_DATE' };
+
+  const stakeholderTypes = [];
+  for (const t of Array.isArray(body.stakeholderTypes) ? body.stakeholderTypes : []) {
+    const k = str(t, 80);
+    if (!typeKeys.has(k)) return { error: 'UNKNOWN_TYPE', type: k };
+    if (!stakeholderTypes.includes(k)) stakeholderTypes.push(k);
+  }
+  const organizations = [];
+  for (const o of Array.isArray(body.organizations) ? body.organizations : []) {
+    const org = str(o?.org, 120), type = str(o?.type, 80), engagement = str(o?.engagement, 20) || 'not-contacted';
+    if (!org) return { error: 'BAD_ORG' };
+    if (!typeKeys.has(type)) return { error: 'UNKNOWN_TYPE', type, org };
+    if (!ENGAGEMENTS.has(engagement)) return { error: 'BAD_ENGAGEMENT', org };
+    organizations.push({ org, type, engagement, contact: str(o?.contact, 160), barrier: str(o?.barrier, 400), notes: str(o?.notes, 2000) });
+  }
+  const updates = [];
+  for (const u of Array.isArray(body.updates) ? body.updates : []) {
+    const text = str(u?.text, 2000), by = str(u?.by, 120), at = str(u?.at, 40);
+    if (!text) return { error: 'BAD_UPDATE' };
+    if (at && !Number.isFinite(Date.parse(at))) return { error: 'BAD_UPDATE_DATE' };
+    updates.push({ text, by, at: at || new Date().toISOString() });
+  }
+  updates.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return { content: {
+    id, name, domain: str(body.domain, 80), stage,
+    summary: str(body.summary, 4000), whyRaised: str(body.whyRaised, 4000),
+    broughtBy: str(body.broughtBy, 200), dateLogged,
+    stakeholderTypes, organizations, updates
+  } };
+}
 const BLOB_SHA = /^[0-9a-f]{40}$/;
 
 function env(name) {
@@ -240,9 +292,10 @@ export async function handler(event) {
   const branch = env('GITHUB_BRANCH');
 
   const dataMatch = rawPath.match(/^\/data\/([^/]+)$/);
+  const potentialMatch = rawPath.match(/^\/potential\/([^/]+)$/);
   const configMatch = rawPath.match(/^\/config\/([a-z0-9-]+)$/);
   const isFacilitators = rawPath === '/facilitators';
-  if (!dataMatch && !isFacilitators && !configMatch) return respond(404, { error: 'NOT_FOUND' });
+  if (!dataMatch && !potentialMatch && !isFacilitators && !configMatch) return respond(404, { error: 'NOT_FOUND' });
   if (configMatch && !CONFIG_FILES[configMatch[1]]) return respond(404, { error: 'NOT_FOUND' });
 
   const who = await authenticate(headers, repo, branch);
@@ -284,6 +337,56 @@ export async function handler(event) {
       return respond(200, { sha: json.content?.sha, savedBy: who.name });
     }
 
+    return respond(405, { error: 'METHOD' });
+  }
+
+  /* ----- potential initiatives: facilitator or admin ----- */
+  if (potentialMatch) {
+    const id = potentialMatch[1];
+    if (!DASHBOARD_ID.test(id) || id === 'index') return respond(400, { error: 'BAD_ID' });
+    const filePath = `data/potential/${id}.json`;
+
+    if (method === 'GET') {
+      const file = await readFile(repo, branch, filePath);
+      if (file.status === 404) return respond(200, { data: null, sha: null });
+      if (file.corrupt) return respond(502, { error: 'CORRUPT' });
+      if (file.status !== 200) return respond(502, { error: 'GITHUB', status: file.status, message: file.message });
+      return respond(200, { data: file.data, sha: file.sha });
+    }
+
+    if (method === 'PUT') {
+      const { body, error } = parseBody(event);
+      if (error) return error;
+      if (body?.sha != null && !BLOB_SHA.test(body.sha)) return respond(400, { error: 'BAD_SHA' });
+      const typesFile = await readFile(repo, branch, 'stakeholder-types.json');
+      const typeKeys = new Set((typesFile.data?.types || []).map(t => t.key));
+      const v = validatePotential(id, body?.content, typeKeys);
+      if (v.error) return respond(400, v);
+
+      const payload = { ...v.content, savedBy: who.name, savedAt: new Date().toISOString() };
+      const { status, json } = await github('PUT', `/repos/${repo}/contents/${filePath}`, {
+        message: `${body.sha ? 'Update' : 'Create'} potential initiative "${v.content.name}" (saved by ${who.name})`,
+        content: encodeBase64Utf8(payload), branch, sha: body.sha || undefined, author: authorFor(who.name)
+      });
+      const bad = writeOutcome(status, json, !!body.sha);
+      if (bad) return bad;
+
+      // Static hosting can't list a directory, so the hub reads an index. Add the id if
+      // it's new. Read-modify-write with the index's own SHA; one retry on a race.
+      let indexed = true;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const idx = await readFile(repo, branch, POTENTIAL_INDEX);
+        const ids = Array.isArray(idx.data?.ids) ? idx.data.ids : [];
+        if (ids.includes(id)) break;
+        const r = await github('PUT', `/repos/${repo}/contents/${POTENTIAL_INDEX}`, {
+          message: `Index potential initiative "${v.content.name}"`,
+          content: encodeBase64Utf8({ ids: [...ids, id] }), branch, sha: idx.sha || undefined, author: authorFor(who.name)
+        });
+        if (r.status === 200 || r.status === 201) break;
+        if (attempt === 1) indexed = false;
+      }
+      return respond(200, { sha: json.content?.sha, savedBy: who.name, indexed });
+    }
     return respond(405, { error: 'METHOD' });
   }
 

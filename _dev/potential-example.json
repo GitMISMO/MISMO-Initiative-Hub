@@ -1,0 +1,19 @@
+{
+  "_comment": "FORMAT REFERENCE ONLY. Every value here is invented to show the shape; nothing describes a real initiative. Delete this key when producing a real file. Stage: not-started | in-progress | in-approvals | kickoff-set | launched. Engagement: not-contacted | declined | contacted | interested | committed. Stakeholder types must be keys from stakeholder-types.json. Dates: dateLogged is YYYY-MM-DD; update 'at' is ISO 8601. The id becomes the page address; letters, digits and hyphens only.",
+  "id": "example-initiative",
+  "name": "Example Initiative",
+  "domain": "",
+  "stage": "in-progress",
+  "broughtBy": "Example Org (example submitter)",
+  "dateLogged": "2026-09-01",
+  "summary": "One or two sentences on what this would standardize and for whom.",
+  "whyRaised": "Why it came up: the problem people are hitting today and who raised it.",
+  "stakeholderTypes": ["Mortgage Originator", "Servicer"],
+  "organizations": [
+    { "org": "Example Lender", "type": "Mortgage Originator", "engagement": "interested", "contact": "A. Person", "barrier": "", "notes": "" },
+    { "org": "Example Servicer", "type": "Servicer", "engagement": "not-contacted", "contact": "", "barrier": "Waiting on legal review", "notes": "" }
+  ],
+  "updates": [
+    { "text": "Logged from a member discussion; scope still open.", "by": "Example Facilitator", "at": "2026-09-01T15:00:00Z" }
+  ]
+}
