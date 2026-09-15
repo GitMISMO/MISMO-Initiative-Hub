@@ -97,11 +97,13 @@ comments, and it's the same tradeoff already live on all four real dashboards
 - **Default theme is light.** A FOUC-prevention inline `<script>` sits at the
   very top of `<head>`, before any stylesheet, reading a per-dashboard
   localStorage key and setting `data-theme` before first paint.
-- **localStorage keys:** per-dashboard `{id}-dashboard-theme` (theme
-  preference — per-browser is correct for this) and `{id}-dashboard-snapshot`
-  (a *draft*, written only when a save could not reach GitHub, offered by the
-  restore banner on next load). One global key, `mismo-hub-github-token`, holds
-  the editor's own token. The old `{id}-roster-data-v1` / `{id}-lane-data-v1`
+- **localStorage keys** (all `tools:hub:…`, see the namespacing rule below):
+  `tools:hub:<id>:theme` (theme preference — per-browser is correct for this),
+  `tools:hub:<id>:draft` (written only when a save could not reach the relay,
+  offered by the restore banner on next load), `tools:hub:theme`,
+  `tools:hub:calendar-filter`, and `tools:hub:facilitator-key` (the editor's
+  own `Display Name:passcode`). Renamed from the old unprefixed keys in Sept
+  2026; done before the relay went live, so no drafts existed to orphan. The old `{id}-roster-data-v1` / `{id}-lane-data-v1`
   keys are gone; nothing reads them.
 - **Saving** commits `data/<id>.json` through the GitHub contents API. The
   snapshot is the actual JS data model (`rosterData`, `laneData`, plus every
@@ -159,6 +161,20 @@ comments, and it's the same tradeoff already live on all four real dashboards
   - A save that fails must say so. The previous `window.storage` path failed
     silently on Pages and lost every edit for months. Never reintroduce a
     storage path that can fail without telling the user.
+- **Every browser-storage key is namespaced `tools:<app>:<name>`.** All MISMO
+  tools are served from one host (`tools.mismo.org/<app>`), and browsers isolate
+  storage by ORIGIN — scheme plus host, path does NOT count. So every app on
+  that host shares one `localStorage`, one `IndexedDB` and one cookie jar. An
+  app that clears storage on sign-out would wipe another app's unsaved work;
+  one app's keys are readable by all the others. Namespacing does not create
+  isolation — nothing can, on a shared origin — but it stops collisions and
+  makes a careless `clear()` obviously wrong in review.
+  This app is `hub`: `tools:hub:facilitator-key`, `tools:hub:theme`,
+  `tools:hub:<dashboard>:draft`, `tools:hub:<dashboard>:theme`,
+  `tools:hub:calendar-filter`. A new app picks its own segment and never
+  touches another's. Never call `localStorage.clear()`; remove your own keys by
+  name. Anything genuinely secret does not belong in browser storage at all —
+  the facilitator key is deliberately low-value and save-only for this reason.
 - **Stakeholder types have a key and a display name.** The key is the string
   the dashboards' code and saved data use (`rosterData[].type`,
   `ROSTER_TYPE_TO_LANE`, `<option value>`); it never changes. The display name

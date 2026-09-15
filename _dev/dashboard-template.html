@@ -159,7 +159,7 @@ silently; if a save cannot happen, the user must be told.
   // delay first paint the way the full page script (loaded later) would.
   (function(){
     try {
-      var saved = localStorage.getItem('{{DASHBOARD_ID}}-dashboard-theme');
+      var saved = localStorage.getItem('tools:hub:{{DASHBOARD_ID}}:theme');
       if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
     } catch (e) {}
   })();
@@ -1215,7 +1215,7 @@ silently; if a save cannot happen, the user must be told.
 </style>
   <!-- Shared git-backed storage. Root-relative on purpose: this file is duplicated to the
        repo root before it becomes a dashboard. It will not resolve from inside _dev/. -->
-  <script src="dashboard-data.js?v=ee67979bdb"></script>
+  <script src="dashboard-data.js?v=268f4f6288"></script>
 </head>
 <body>
 
@@ -1596,7 +1596,7 @@ silently; if a save cannot happen, the user must be told.
   }
   let savedDashboardTheme = 'light';
   try {
-    savedDashboardTheme = localStorage.getItem('{{DASHBOARD_ID}}-dashboard-theme') || 'light';
+    savedDashboardTheme = localStorage.getItem('tools:hub:{{DASHBOARD_ID}}:theme') || 'light';
   } catch (e) {
     // Local storage unavailable — just default to light.
   }
@@ -1607,7 +1607,7 @@ silently; if a save cannot happen, the user must be told.
       const next = current === 'dark' ? 'light' : 'dark';
       applyDashboardTheme(next);
       try {
-        localStorage.setItem('{{DASHBOARD_ID}}-dashboard-theme', next);
+        localStorage.setItem('tools:hub:{{DASHBOARD_ID}}:theme', next);
       } catch (e) {
         // Local storage unavailable — the toggle still works, it just won't persist.
       }
@@ -2605,7 +2605,7 @@ silently; if a save cannot happen, the user must be told.
       if (!MismoStore.hasToken()) {
         if (!MismoStore.promptForToken() || !MismoStore.hasToken()) {
           label.textContent = 'Not saved';
-          try { localStorage.setItem('{{DASHBOARD_ID}}-dashboard-snapshot', JSON.stringify(snapshot)); } catch (e2) {}
+          try { localStorage.setItem('tools:hub:{{DASHBOARD_ID}}:draft', JSON.stringify(snapshot)); } catch (e2) {}
           alert(MismoStore.explain('NO_TOKEN'));
           throw new Error('handled');
         }
@@ -2619,11 +2619,11 @@ silently; if a save cannot happen, the user must be told.
         saveSnapshotBtn.classList.remove('has-changes');
         saveSnapshotBtn.classList.add('just-saved');
         label.textContent = 'Saved';
-        try { localStorage.removeItem('{{DASHBOARD_ID}}-dashboard-snapshot'); } catch (e2) {}
+        try { localStorage.removeItem('tools:hub:{{DASHBOARD_ID}}:draft'); } catch (e2) {}
         document.getElementById('restoreBanner').style.display = 'none';
       } else {
         // Keep the work somewhere. The restore banner offers it on the next load.
-        try { localStorage.setItem('{{DASHBOARD_ID}}-dashboard-snapshot', JSON.stringify(snapshot)); } catch (e2) {}
+        try { localStorage.setItem('tools:hub:{{DASHBOARD_ID}}:draft', JSON.stringify(snapshot)); } catch (e2) {}
         label.textContent = 'Not saved';
         alert(MismoStore.explain(result.reason));
       }
@@ -2646,7 +2646,7 @@ silently; if a save cannot happen, the user must be told.
   (function(){
     let savedSnapshotRaw;
     try {
-      savedSnapshotRaw = localStorage.getItem('{{DASHBOARD_ID}}-dashboard-snapshot');
+      savedSnapshotRaw = localStorage.getItem('tools:hub:{{DASHBOARD_ID}}:draft');
     } catch (e) {
       return;
     }
@@ -2658,7 +2658,7 @@ silently; if a save cannot happen, the user must be told.
     const banner = document.getElementById('restoreBanner');
     let savedSnapshotRaw;
     try {
-      savedSnapshotRaw = localStorage.getItem('{{DASHBOARD_ID}}-dashboard-snapshot');
+      savedSnapshotRaw = localStorage.getItem('tools:hub:{{DASHBOARD_ID}}:draft');
     } catch (e) {
       alert('Could not read saved data — this browser may be blocking local storage.');
       return;
