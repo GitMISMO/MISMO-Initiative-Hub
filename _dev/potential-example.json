@@ -1,5 +1,5 @@
 {
-  "_comment": "FORMAT REFERENCE ONLY. Every value here is invented to show the shape; nothing describes a real initiative. Delete this key when producing a real file. Stage: not-started | in-progress | in-approvals | kickoff-set | launched. Engagement: not-contacted | declined | contacted | interested | committed. Stakeholder types must be keys from stakeholder-types.json. potentialSolutions is a list of short strings, one per proposed deliverable. Dates: dateLogged is YYYY-MM-DD; update 'at' is ISO 8601. The id becomes the page address; letters, digits and hyphens only.",
+  "_comment": "FORMAT REFERENCE ONLY. Every value here is invented to show the shape; nothing describes a real initiative. Delete this key when producing a real file. Stage: not-started | in-progress | in-approvals | kickoff-set | launched. Engagement: not-contacted | declined | contacted | interested | committed. Stakeholder types must be keys from stakeholder-types.json. leadership is a list of {name, title, company, role}; role must be one of Chair, Vice-Chair, Architecture Representative, Information Management Representative, Education Representative. potentialSolutions is a list of short strings, one per proposed deliverable. Dates: dateLogged is YYYY-MM-DD; update 'at' is ISO 8601. The id becomes the page address; letters, digits and hyphens only.",
   "id": "example-initiative",
   "name": "Example Initiative",
   "domain": "",
@@ -11,6 +11,14 @@
   "potentialSolutions": [
     "Example template A",
     "Example guidance document B"
+  ],
+  "leadership": [
+    {
+      "name": "Example Person",
+      "title": "Example Title",
+      "company": "Example Org",
+      "role": "Chair"
+    }
   ],
   "stakeholderTypes": [
     "Mortgage Originator",

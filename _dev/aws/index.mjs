@@ -93,6 +93,7 @@ const POTENTIAL_INDEX = 'data/potential/index.json';
 const STAGES = new Set(['not-started', 'in-progress', 'in-approvals', 'kickoff-set', 'launched']);
 const ENGAGEMENTS = new Set(['not-contacted', 'declined', 'contacted', 'interested', 'committed']);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const LEADERSHIP_ROLES = new Set(['Chair', 'Vice-Chair', 'Architecture Representative', 'Information Management Representative', 'Education Representative']);
 
 /* A potential-initiative record, checked field by field. Returns {content} or {error, …}.
  * `typeKeys` is the set of keys in stakeholder-types.json; anything else is refused so a
@@ -121,6 +122,13 @@ function validatePotential(id, body, typeKeys) {
     if (!ENGAGEMENTS.has(engagement)) return { error: 'BAD_ENGAGEMENT', org };
     organizations.push({ org, type, engagement, contact: str(o?.contact, 160), barrier: str(o?.barrier, 400), notes: str(o?.notes, 2000) });
   }
+  const leadership = [];
+  for (const l of Array.isArray(body.leadership) ? body.leadership : []) {
+    const name = str(l?.name, 120), title = str(l?.title, 120), company = str(l?.company, 120), role = str(l?.role, 60);
+    if (!name) return { error: 'BAD_LEADER' };
+    if (!LEADERSHIP_ROLES.has(role)) return { error: 'BAD_ROLE', name, role };
+    leadership.push({ name, title, company, role });
+  }
   const potentialSolutions = [];
   for (const x of Array.isArray(body.potentialSolutions) ? body.potentialSolutions : []) {
     const t = str(x, 400); if (t) potentialSolutions.push(t);
@@ -137,7 +145,7 @@ function validatePotential(id, body, typeKeys) {
     id, name, domain: str(body.domain, 80), stage,
     summary: str(body.summary, 4000), whyRaised: str(body.whyRaised, 4000),
     broughtBy: str(body.broughtBy, 200), dateLogged,
-    potentialSolutions, stakeholderTypes, organizations, updates
+    potentialSolutions, leadership, stakeholderTypes, organizations, updates
   } };
 }
 const BLOB_SHA = /^[0-9a-f]{40}$/;

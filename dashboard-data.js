@@ -302,6 +302,7 @@
       { key: 'kickoff-set',  label: 'Kick off Set' },
       { key: 'launched',     label: 'Launched' }
     ],
+    LEADERSHIP_ROLES: ['Chair', 'Vice-Chair', 'Architecture Representative', 'Information Management Representative', 'Education Representative'],
     ENGAGEMENTS: [
       { key: 'not-contacted', label: 'Not Contacted', color: '#8B94A7' },
       { key: 'declined',      label: 'Declined',      color: '#C2255C' },
@@ -386,6 +387,13 @@
       if (!POT.ENGAGEMENTS.some(function (x) { return x.key === eng; })) problems.push('Organization "' + org + '" has unknown engagement "' + eng + '".');
       orgs.push({ org: org, type: type, engagement: eng, contact: str(o && o.contact, 160), barrier: str(o && o.barrier, 400), notes: str(o && o.notes, 2000) });
     });
+    var leadership = [];
+    (Array.isArray(r.leadership) ? r.leadership : []).forEach(function (l, i) {
+      var name = str(l && l.name, 120), role = str(l && l.role, 60);
+      if (!name) problems.push('Leadership entry #' + (i + 1) + ' has no name.');
+      if (POT.LEADERSHIP_ROLES.indexOf(role) < 0) problems.push('Leadership entry "' + (name || '#' + (i + 1)) + '" has unknown role "' + role + '".');
+      leadership.push({ name: name, title: str(l && l.title, 120), company: str(l && l.company, 120), role: role });
+    });
     var solutions = [];
     (Array.isArray(r.potentialSolutions) ? r.potentialSolutions : []).forEach(function (x) { var t = str(x, 400); if (t) solutions.push(t); });
     var updates = [];
@@ -398,7 +406,7 @@
     updates.sort(function (a, b) { return Date.parse(b.at) - Date.parse(a.at); });
     return { problems: problems, content: {
       name: name, domain: str(r.domain, 80), stage: stage, summary: str(r.summary, 4000), whyRaised: str(r.whyRaised, 4000),
-      broughtBy: str(r.broughtBy, 200), dateLogged: dateLogged, potentialSolutions: solutions, stakeholderTypes: types, organizations: orgs, updates: updates
+      broughtBy: str(r.broughtBy, 200), dateLogged: dateLogged, potentialSolutions: solutions, leadership: leadership, stakeholderTypes: types, organizations: orgs, updates: updates
     } };
   }
   function potentialSlug(name) {
@@ -454,7 +462,7 @@
     facilitators: { get: facilitatorsGet, put: facilitatorsPut, generatePasscode: generatePasscode, sha256Hex: sha256Hex },
     config: { get: configGet, put: configPut },
     potential: { list: potentialList, get: potentialGet, put: potentialPut, validate: potentialValidate, slug: potentialSlug,
-                 STAGES: POT.STAGES, ENGAGEMENTS: POT.ENGAGEMENTS,
+                 STAGES: POT.STAGES, ENGAGEMENTS: POT.ENGAGEMENTS, LEADERSHIP_ROLES: POT.LEADERSHIP_ROLES,
                  stageLabel: function (k) { return potLabel(POT.STAGES, k); }, engagementLabel: function (k) { return potLabel(POT.ENGAGEMENTS, k); } },
     typeKeys: typeKeySet,
     types: { load: typesLoad },

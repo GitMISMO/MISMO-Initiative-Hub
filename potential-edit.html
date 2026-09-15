@@ -113,6 +113,13 @@
     </section>
 
     <section class="card">
+      <h2>Potential leadership</h2>
+      <p class="hint">People who might lead the workgroup if it's chartered.</p>
+      <table id="leadTable"><thead><tr><th style="width:26%">Name</th><th style="width:24%">Title</th><th style="width:22%">Company</th><th>Role</th><th></th></tr></thead><tbody></tbody></table>
+      <div style="margin-top:10px"><button class="btn secondary small" id="leadAdd">+ Add person</button></div>
+    </section>
+
+    <section class="card">
       <h2>Organizations</h2>
       <p class="hint">Who's been approached, and where they stand.</p>
       <table id="orgTable"><thead><tr><th style="width:24%">Organization</th><th style="width:20%">Type</th><th style="width:16%">Engagement</th><th>Contact</th><th>Barrier</th><th></th></tr></thead><tbody></tbody></table>
@@ -144,7 +151,7 @@
   const editId = new URLSearchParams(location.search).get('id') || '';
   let rec = null, sha = null, typeKeys = new Set(), allTypes = [], idOverride = '';
 
-  function blank(){ return { name:'', domain:'', stage:'not-started', broughtBy:'', dateLogged:'', summary:'', whyRaised:'', potentialSolutions:[], stakeholderTypes:[], organizations:[], updates:[] }; }
+  function blank(){ return { name:'', domain:'', stage:'not-started', broughtBy:'', dateLogged:'', summary:'', whyRaised:'', potentialSolutions:[], leadership:[], stakeholderTypes:[], organizations:[], updates:[] }; }
   function currentId(){ return editId || idOverride || P.slug($('fName').value); }
 
   /* ----- form <-> record ----- */
@@ -153,13 +160,20 @@
     $('fDate').value = rec.dateLogged || ''; $('fSummary').value = rec.summary || ''; $('fWhy').value = rec.whyRaised || '';
     $('fSolutions').value = (rec.potentialSolutions || []).join('\n');
     $('fStage').innerHTML = P.STAGES.map(s => `<option value="${s.key}" ${s.key === (rec.stage||'not-started') ? 'selected' : ''}>${esc(s.label)}</option>`).join('');
-    renderChips(); renderOrgs(); renderUpds(); renderIdLine();
+    renderChips(); renderLeads(); renderOrgs(); renderUpds(); renderIdLine();
+  }
+  const roleOpts = v => P.LEADERSHIP_ROLES.map(r => `<option ${r === v ? 'selected' : ''}>${esc(r)}</option>`).join('') + (v && P.LEADERSHIP_ROLES.indexOf(v) < 0 ? `<option selected>${esc(v)} (unknown)</option>` : '');
+  function renderLeads(){
+    $('leadTable').querySelector('tbody').innerHTML = (rec.leadership || []).map((l, i) => `<tr>
+      <td><input type="text" data-f="name" value="${esc(l.name)}"></td><td><input type="text" data-f="title" value="${esc(l.title||'')}"></td><td><input type="text" data-f="company" value="${esc(l.company||'')}"></td>
+      <td><select data-f="role">${roleOpts(l.role)}</select></td><td><button class="btn danger small" data-rm-lead="${i}">×</button></td></tr>`).join('');
   }
   function read(){
     rec.name = $('fName').value; rec.domain = $('fDomain').value; rec.broughtBy = $('fBroughtBy').value; rec.dateLogged = $('fDate').value;
     rec.summary = $('fSummary').value; rec.whyRaised = $('fWhy').value; rec.stage = $('fStage').value;
     rec.potentialSolutions = $('fSolutions').value.split('\n').map(x => x.trim()).filter(Boolean);
     rec.stakeholderTypes = [...document.querySelectorAll('#typeChips input:checked')].map(i => i.value);
+    rec.leadership = [...$('leadTable').querySelectorAll('tbody tr')].map(tr => ({ name: tr.querySelector('[data-f=name]').value, title: tr.querySelector('[data-f=title]').value, company: tr.querySelector('[data-f=company]').value, role: tr.querySelector('[data-f=role]').value }));
     rec.organizations = [...$('orgTable').querySelectorAll('tbody tr')].map(tr => ({ org: tr.querySelector('[data-f=org]').value, type: tr.querySelector('[data-f=type]').value, engagement: tr.querySelector('[data-f=eng]').value, contact: tr.querySelector('[data-f=contact]').value, barrier: tr.querySelector('[data-f=barrier]').value, notes: tr.dataset.notes || '' }));
     rec.updates = [...$('updTable').querySelectorAll('tbody tr')].map(tr => ({ text: tr.querySelector('[data-f=text]').value, by: tr.querySelector('[data-f=by]').value, at: tr.querySelector('[data-f=at]').value || new Date().toISOString() }));
     return rec;
@@ -187,6 +201,8 @@
   }
   $('orgTable').addEventListener('click', e => { const b = e.target.closest('[data-rm-org]'); if (!b) return; read(); rec.organizations.splice(+b.dataset.rmOrg, 1); renderOrgs(); });
   $('updTable').addEventListener('click', e => { const b = e.target.closest('[data-rm-upd]'); if (!b) return; read(); rec.updates.splice(+b.dataset.rmUpd, 1); renderUpds(); });
+  $('leadTable').addEventListener('click', e => { const b = e.target.closest('[data-rm-lead]'); if (!b) return; read(); rec.leadership.splice(+b.dataset.rmLead, 1); renderLeads(); });
+  $('leadAdd').addEventListener('click', () => { read(); rec.leadership.push({ name:'', title:'', company:'', role: P.LEADERSHIP_ROLES[0] }); renderLeads(); });
   $('orgAdd').addEventListener('click', () => { read(); rec.organizations.push({ org:'', type: rec.stakeholderTypes[0] || allTypes[0]?.key || '', engagement:'not-contacted', contact:'', barrier:'', notes:'' }); renderOrgs(); });
   $('updAdd').addEventListener('click', () => { read(); rec.updates.unshift({ text:'', by:S.keyName(), at:new Date().toISOString() }); renderUpds(); });
   $('fName').addEventListener('input', renderIdLine);
