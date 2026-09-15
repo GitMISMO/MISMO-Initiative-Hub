@@ -312,10 +312,23 @@ Carried forward from earlier sessions, still outstanding as of this handoff:
 
 ## What's next for this project
 
-The repository is the backend now, by decision: no new service or account. The
-next structural pieces are the admin panel for stakeholder types and the
-Potential Initiatives feature (designed and approved in an earlier session,
-not yet built — see `DASHBOARD-HANDOFF.md` in that session's outputs). See this project's conversation history in Claude.ai for the
+The repository is the backend now, by decision: no new service or account.
+
+Queued, roughly in order:
+
+1. **Repo migration to the organization's GitHub.** Owner's task. Afterwards:
+   recreate the Lambda's token under the org, update `GITHUB_REPO` and
+   `ALLOWED_ORIGIN`, and update the account name in `_dev/aws/SETUP.md` and
+   this file. Code needs no changes.
+2. **Lambda relay live** (IT creates it per `_dev/aws/SETUP.md`), then
+   `RELAY_URL` set in `dashboard-data.js` and the admin entry created in
+   `facilitators.json`.
+3. **Potential Initiatives feature** — designed and approved in an earlier
+   session, not yet built; see `DASHBOARD-HANDOFF.md` in that session's
+   outputs.
+4. **Press Release Drafting Widget and Editor** — added to the list Sept 2026.
+   Not yet scoped; no design or requirements exist for it in this repo.
+5. Template structural re-sync and the TPA/LBDS key merge (see deferred list). See this project's conversation history in Claude.ai for the
 reasoning already discussed on model/effort selection (Sonnet for day-to-day
 work, Opus/Fable for architecture decisions, `opusplan` to combine both) and
 using the advisor tool or an adversarial review subagent as a second check on
