@@ -445,7 +445,7 @@
     } catch (e) { return { ok: false, reason: 'NETWORK' }; }
   }
 
-  /* Same generator and hash as _dev/aws/key-helper.html, so the panel can mint keys. */
+  /* Same generator and hash as key-helper.html, so the panel can mint keys. */
   function generatePasscode() {
     var ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     var bytes = new Uint8Array(20); crypto.getRandomValues(bytes);

@@ -78,8 +78,10 @@ and any number of **facilitators**, each as a display name and the SHA-256 hash 
 generated passcode. The file is public, which is why it holds hashes, and why passcodes
 must be generated rather than chosen.
 
-Open `_dev/aws/key-helper.html` in a browser — from disk is fine; it makes no network
-requests. For each person:
+Open **https://pwcodingllc.github.io/MISMO-Initiative-Hub/key-helper.html** (the
+published site; it makes no network requests and nothing you generate leaves the
+page). Do not use GitHub's "raw" view — that shows the source as text rather than
+running it. For each person:
 
 1. Type their display name. It becomes the git author on their saves, so use a real one.
 2. Pick the role. Make **yourself** the admin first; there is exactly one.

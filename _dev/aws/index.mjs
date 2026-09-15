@@ -15,7 +15,7 @@
  *   admin         everything a facilitator can do, plus read and write facilitators.json
  *
  * The file is public (the repo is), which is why it holds hashes and why passcodes must
- * be generated, never chosen. _dev/aws/key-helper.html generates them.
+ * be generated, never chosen. key-helper.html generates them.
  *
  * ENVIRONMENT VARIABLES (set once, by whoever owns the AWS account)
  *   GITHUB_TOKEN     Fine-grained PAT owned by the repository's owner. This repo only,

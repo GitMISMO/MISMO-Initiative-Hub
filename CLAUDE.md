@@ -32,7 +32,7 @@ edits are committed to `data/<id>.json` through the GitHub contents API. See
 | `facilitators.json` | Who can save: one admin, N facilitators, as name + SHA-256 of a generated passcode. Public; hashes only. Edited by the admin panel (or by hand on GitHub). |
 | `stakeholder-types.json` | The global stakeholder-type list: `types` = `{key, name}` (key immutable, name is what people see) and `usage` = which dashboards use which keys. Every dashboard reads it at boot for display names. `usage` is maintained by `_dev/check-types.py`, never by the panel. |
 | `_dev/check-types.py` | Verifies `stakeholder-types.json` matches each dashboard's `ROSTER_TYPE_TO_LANE`; `--write` rebuilds `usage`. Run after any type change in a dashboard and before pushing. |
-| `_dev/aws/index.mjs`, `_dev/aws/SETUP.md`, `_dev/aws/key-helper.html` | The save relay (Lambda), how to stand it up, and the offline passcode/hash generator. |
+| `_dev/aws/index.mjs`, `_dev/aws/SETUP.md`, `key-helper.html` | The save relay (Lambda), how to stand it up, and the offline passcode/hash generator. |
 | `data/<id>.json` | One committed data file per dashboard, created by the first save. Absent until then; a missing file means "use the built-in defaults". |
 | `_dev/dashboard-template.html` | Starting point for building a **new** dashboard — see below |
 | `_dev/validate_nesting.py` | HTML nesting validator used before every deploy |
@@ -125,7 +125,7 @@ comments, and it's the same tradeoff already live on all four real dashboards
     relay reads it per request (30 s cache, bypassed on admin writes). Admin
     routes `GET/PUT /facilitators` are admin-key only and always preserve the
     admin entry, so the admin cannot lock themselves out through the relay.
-    `_dev/aws/key-helper.html` mints passcodes and hashes offline;
+    `key-helper.html` mints passcodes and hashes offline;
     `MismoStore.facilitators` exposes the same for the future admin panel. The
     id `facilitators` is reserved and refused on `/data/`.
   - **Why a relay and not per-person tokens:** `PWCodingLLC` is a personal
