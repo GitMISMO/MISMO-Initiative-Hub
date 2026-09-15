@@ -24,7 +24,10 @@ edits are committed to `data/<id>.json` through the GitHub contents API. See
 | `mcd-dashboard.html`, `lbds-dashboard.html`, `ccs-dashboard.html`, `tpa-dashboard.html` | The four live, real workgroup dashboards |
 | `calendar.html` | Meeting calendar with a workgroup filter dropdown |
 | `dashboard-data.js` | Shared git-backed storage used by every dashboard: reads the committed data file, sends saves to the relay, holds the conflict lock, sanitises shared HTML. Read its header comment before touching persistence. |
-| `facilitators.json` | Who can save: one admin, N facilitators, as name + SHA-256 of a generated passcode. Public; hashes only. Edited by the admin on GitHub or, later, by the admin panel. |
+| `admin.html` | The admin panel: facilitators (add / reset passcode / remove / expiry) and the global stakeholder-type list (rename / add / remove-if-unused). Admin key only. Saves through the relay. |
+| `facilitators.json` | Who can save: one admin, N facilitators, as name + SHA-256 of a generated passcode. Public; hashes only. Edited by the admin panel (or by hand on GitHub). |
+| `stakeholder-types.json` | The global stakeholder-type list: `types` = `{key, name}` (key immutable, name is what people see) and `usage` = which dashboards use which keys. Every dashboard reads it at boot for display names. `usage` is maintained by `_dev/check-types.py`, never by the panel. |
+| `_dev/check-types.py` | Verifies `stakeholder-types.json` matches each dashboard's `ROSTER_TYPE_TO_LANE`; `--write` rebuilds `usage`. Run after any type change in a dashboard and before pushing. |
 | `_dev/aws/index.mjs`, `_dev/aws/SETUP.md`, `_dev/aws/key-helper.html` | The save relay (Lambda), how to stand it up, and the offline passcode/hash generator. |
 | `data/<id>.json` | One committed data file per dashboard, created by the first save. Absent until then; a missing file means "use the built-in defaults". |
 | `_dev/dashboard-template.html` | Starting point for building a **new** dashboard — see below |
@@ -140,6 +143,18 @@ comments, and it's the same tradeoff already live on all four real dashboards
   - A save that fails must say so. The previous `window.storage` path failed
     silently on Pages and lost every edit for months. Never reintroduce a
     storage path that can fail without telling the user.
+- **Stakeholder types have a key and a display name.** The key is the string
+  the dashboards' code and saved data use (`rosterData[].type`,
+  `ROSTER_TYPE_TO_LANE`, `<option value>`); it never changes. The display name
+  comes from `stakeholder-types.json` via `MismoStore.typeName(key)` and is
+  used at every point a type is shown: sidebar row, roster heading, the table's
+  type dropdown, the add-organization dropdown, and the search haystack. A
+  rename in the admin panel therefore reaches every dashboard on its next
+  deploy without touching code or data. If the file can't be read, `typeName`
+  returns the key, so the page degrades to today's names rather than blanks.
+  Adding a type to the global list makes it *available*; a dashboard adopts it
+  by adding a lane (a code change), and `check-types.py --write` then records
+  the usage. Merging two keys is a code change, not a rename.
 - **One roadmap lane per stakeholder type, one-to-one.** Every type in the
   stakeholder table owns exactly one lane; every lane other than `general`
   belongs to exactly one type. `ROSTER_TYPE_TO_LANE` is where this is written
@@ -254,6 +269,12 @@ personal access token in a plaintext file:
 
 Carried forward from earlier sessions, still outstanding as of this handoff:
 
+- **Type-name convergence is now a rename away, except where it's a merge.**
+  `Investors/Aggregators` (TPA) and `Aggregator/Investor` (LBDS) are two keys
+  for one thing. The panel refuses two types with the same display name, so
+  fixing this means changing TPA's key to `Aggregator/Investor` in its code
+  and data, then `check-types.py --write`. Plurals (`Warehouse Lenders`,
+  `eMortgage Technology Providers`) can just be renamed in the panel.
 - **`_dev/dashboard-template.html` has drifted structurally again.** The four
   live dashboards use the sidebar layout (`renderTypeSidebar`,
   `ROSTER_TYPE_TO_LANE`, roadmap rendered inside the roster panel keyed on

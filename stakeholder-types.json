@@ -1,0 +1,93 @@
+{
+  "types": [
+    {
+      "key": "Aggregator/Investor",
+      "name": "Aggregator/Investor"
+    },
+    {
+      "key": "AVM Provider",
+      "name": "AVM Provider"
+    },
+    {
+      "key": "Compliance Vendor",
+      "name": "Compliance Vendor"
+    },
+    {
+      "key": "eMortgage Technology Providers",
+      "name": "eMortgage Technology Providers"
+    },
+    {
+      "key": "GSE",
+      "name": "GSE"
+    },
+    {
+      "key": "Investors/Aggregators",
+      "name": "Investors/Aggregators"
+    },
+    {
+      "key": "Lender (3rd Party LOS)",
+      "name": "Lender (3rd Party LOS)"
+    },
+    {
+      "key": "Lender (Proprietary LOS)",
+      "name": "Lender (Proprietary LOS)"
+    },
+    {
+      "key": "LOS Provider",
+      "name": "LOS Provider"
+    },
+    {
+      "key": "Mortgage Originator",
+      "name": "Mortgage Originator"
+    },
+    {
+      "key": "Regulator",
+      "name": "Regulator"
+    },
+    {
+      "key": "Servicer",
+      "name": "Servicer"
+    },
+    {
+      "key": "Servicing System",
+      "name": "Servicing System"
+    },
+    {
+      "key": "Third-Party Reviewer",
+      "name": "Third-Party Reviewer"
+    },
+    {
+      "key": "Warehouse Lenders",
+      "name": "Warehouse Lenders"
+    }
+  ],
+  "usage": {
+    "ccs": [
+      "AVM Provider",
+      "GSE",
+      "Mortgage Originator"
+    ],
+    "lbds": [
+      "Aggregator/Investor",
+      "LOS Provider",
+      "Mortgage Originator",
+      "Regulator",
+      "Servicer",
+      "Servicing System"
+    ],
+    "mcd": [
+      "Compliance Vendor",
+      "LOS Provider",
+      "Lender (3rd Party LOS)",
+      "Lender (Proprietary LOS)",
+      "Regulator",
+      "Third-Party Reviewer"
+    ],
+    "tpa": [
+      "Investors/Aggregators",
+      "Mortgage Originator",
+      "Warehouse Lenders",
+      "eMortgage Technology Providers"
+    ]
+  }
+}

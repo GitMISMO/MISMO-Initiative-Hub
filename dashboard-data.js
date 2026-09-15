@@ -237,6 +237,57 @@
     return true;
   }
 
+  /* ---------- stakeholder types: global display names ---------- */
+
+  /* stakeholder-types.json maps each type's immutable KEY (what the dashboards' code and
+   * saved data use) to its DISPLAY NAME (what people see). Renaming a type in the admin
+   * panel changes the name; the key never changes, so nothing internal moves and no saved
+   * data is invalidated. Dashboards call typesLoad() at boot and typeName() at every
+   * point a type is shown. If the file can't be read, typeName() returns the key, so the
+   * page degrades to today's behaviour rather than to blanks. */
+  var typeNames = {};
+  async function typesLoad() {
+    try {
+      var res = await fetch('stakeholder-types.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) return false;
+      var doc = await res.json();
+      var map = {};
+      (doc.types || []).forEach(function (t) { if (t && t.key) map[t.key] = t.name || t.key; });
+      typeNames = map;
+      return true;
+    } catch (e) { return false; }
+  }
+  function typeName(key) { return Object.prototype.hasOwnProperty.call(typeNames, key) ? typeNames[key] : key; }
+
+  /* ---------- global config (admin key only; used by the admin panel) ---------- */
+
+  async function configGet(name) {
+    if (!hasKey()) return { ok: false, reason: 'NO_KEY' };
+    if (!RELAY_URL) return { ok: false, reason: 'NO_RELAY' };
+    try {
+      var res = await relay('/config/' + name);
+      var body = null; try { body = await res.json(); } catch (e) {}
+      if (res.status === 401) return { ok: false, reason: (body && body.error === 'KEY_EXPIRED') ? 'KEY_EXPIRED' : 'KEY_BAD' };
+      if (res.status === 403) return { ok: false, reason: (body && body.error === 'ADMIN_ONLY') ? 'ADMIN_ONLY' : 'ORIGIN' };
+      if (!res.ok) return { ok: false, reason: 'RELAY' };
+      return { ok: true, sha: body.sha, content: body.content };
+    } catch (e) { return { ok: false, reason: 'NETWORK' }; }
+  }
+  async function configPut(name, content, sha) {
+    if (!hasKey()) return { ok: false, reason: 'NO_KEY' };
+    if (!RELAY_URL) return { ok: false, reason: 'NO_RELAY' };
+    try {
+      var res = await relay('/config/' + name, { method: 'PUT', body: { content: content, sha: sha || null } });
+      var body = null; try { body = await res.json(); } catch (e) {}
+      if (res.status === 401) return { ok: false, reason: 'KEY_BAD' };
+      if (res.status === 403) return { ok: false, reason: (body && body.error === 'ADMIN_ONLY') ? 'ADMIN_ONLY' : 'ORIGIN' };
+      if (res.status === 409) return { ok: false, reason: 'CONFLICT' };
+      if (res.status === 400) return { ok: false, reason: 'REJECTED', detail: body };
+      if (!res.ok) return { ok: false, reason: 'RELAY' };
+      return { ok: true, sha: body.sha };
+    } catch (e) { return { ok: false, reason: 'NETWORK' }; }
+  }
+
   /* ---------- facilitator management (admin key only; used by the admin panel) ---------- */
 
   async function facilitatorsGet() {
@@ -283,6 +334,11 @@
 
   window.MismoStore = {
     facilitators: { get: facilitatorsGet, put: facilitatorsPut, generatePasscode: generatePasscode, sha256Hex: sha256Hex },
+    config: { get: configGet, put: configPut },
+    types: { load: typesLoad },
+    typeName: typeName,
+    getKey: getKey,
+    setKey: setKey,
     configure: function (opts) {
       cfg.id = opts.id;
       cfg.path = 'data/' + opts.id + '.json';

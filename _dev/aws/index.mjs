@@ -27,11 +27,16 @@
  * ROUTES (all under the function URL; key in header X-Facilitator-Key as "Name:passcode")
  *   GET  /data/{id}       Fresh read of data/{id}.json with its blob SHA.   facilitator+
  *   PUT  /data/{id}       Commit a new version. Body: {content, sha}.       facilitator+
- *   GET  /facilitators    The list, without hashes, plus the file's SHA.    admin
+ *   GET  /facilitators    The list (with hashes — the panel resends them) + SHA. admin
  *   PUT  /facilitators    Replace the list. Body: {facilitators, sha}.      admin
  *                         The admin entry is preserved as-is; it cannot be changed
  *                         through this route, so the admin can't lock themselves out.
  *                         To rotate the admin key, edit facilitators.json directly.
+ *   GET  /config/{name}   Read a global config file with its SHA.           admin
+ *   PUT  /config/{name}   Replace it. Body: {content, sha}. Validated.      admin
+ *                         Only names in CONFIG_FILES are served. For stakeholder-types,
+ *                         the `usage` index is preserved from the current file, never
+ *                         taken from the body — it is maintained by _dev/check-types.py.
  *   OPTIONS *             CORS preflight. Handled here — leave CORS DISABLED on the
  *                         function URL, or the browser gets duplicate headers.
  *
@@ -50,7 +55,34 @@ const FACILITATORS_PATH = 'facilitators.json';
 const FACILITATORS_CACHE_MS = 30_000;              // revocation lands within half a minute
 const MAX_BODY_BYTES = 1_000_000;                  // dashboards are ~10 KB; 1 MB is generous
 const DASHBOARD_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;   // data/<id>.json — no dots, no slashes
-const RESERVED_IDS = new Set(['facilitators']);    // never a dashboard, never writable via /data/
+const RESERVED_IDS = new Set(['facilitators', 'stakeholder-types']);   // never dashboards
+/* Global config files the admin may edit through /config/{name}, with a validator each. */
+const CONFIG_FILES = {
+  'stakeholder-types': {
+    path: 'stakeholder-types.json',
+    validate(body, current) {
+      if (!body || !Array.isArray(body.types)) return { error: 'BAD_CONTENT' };
+      const keys = new Set(), names = new Set(), types = [];
+      for (const t of body.types) {
+        const key = typeof t?.key === 'string' ? t.key.trim() : '';
+        const name = typeof t?.name === 'string' ? t.name.trim() : '';
+        if (!key || key.length > 80) return { error: 'BAD_KEY', key };
+        if (!name || name.length > 80) return { error: 'BAD_NAME', key };
+        if (keys.has(key)) return { error: 'DUPLICATE_KEY', key };
+        if (names.has(name.toLowerCase())) return { error: 'DUPLICATE_NAME', key };
+        keys.add(key); names.add(name.toLowerCase());
+        types.push({ key, name });
+      }
+      // A type still referenced by a dashboard cannot be removed. usage comes from the
+      // committed file, so the guard cannot be bypassed by editing the request.
+      const usage = current?.usage && typeof current.usage === 'object' ? current.usage : {};
+      for (const [dash, used] of Object.entries(usage)) {
+        for (const k of used) if (!keys.has(k)) return { error: 'IN_USE', key: k, dashboard: dash };
+      }
+      return { content: { types, usage } };
+    }
+  }
+};
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const BLOB_SHA = /^[0-9a-f]{40}$/;
 
@@ -208,8 +240,10 @@ export async function handler(event) {
   const branch = env('GITHUB_BRANCH');
 
   const dataMatch = rawPath.match(/^\/data\/([^/]+)$/);
+  const configMatch = rawPath.match(/^\/config\/([a-z0-9-]+)$/);
   const isFacilitators = rawPath === '/facilitators';
-  if (!dataMatch && !isFacilitators) return respond(404, { error: 'NOT_FOUND' });
+  if (!dataMatch && !isFacilitators && !configMatch) return respond(404, { error: 'NOT_FOUND' });
+  if (configMatch && !CONFIG_FILES[configMatch[1]]) return respond(404, { error: 'NOT_FOUND' });
 
   const who = await authenticate(headers, repo, branch);
   if (who.error === 'FACILITATORS_UNREADABLE') return respond(502, { error: 'FACILITATORS_UNREADABLE', message: 'facilitators.json could not be read. The site owner needs to check it.' });
@@ -253,17 +287,50 @@ export async function handler(event) {
     return respond(405, { error: 'METHOD' });
   }
 
-  /* ----- facilitators: admin only ----- */
-  if (who.role !== 'admin') return respond(403, { error: 'ADMIN_ONLY', message: 'Only the admin key can manage facilitators.' });
+  /* ----- config + facilitators: admin only ----- */
+  if (who.role !== 'admin') return respond(403, { error: 'ADMIN_ONLY', message: 'Only the admin key can do that.' });
+
+  if (configMatch) {
+    const cfg = CONFIG_FILES[configMatch[1]];
+    if (method === 'GET') {
+      const file = await readFile(repo, branch, cfg.path);
+      if (file.status === 404) return respond(200, { content: null, sha: null });
+      if (file.corrupt) return respond(502, { error: 'CORRUPT', message: `${cfg.path} is not valid JSON.` });
+      if (file.status !== 200) return respond(502, { error: 'GITHUB', status: file.status, message: file.message });
+      return respond(200, { content: file.data, sha: file.sha });
+    }
+    if (method === 'PUT') {
+      const { body, error } = parseBody(event);
+      if (error) return error;
+      if (body?.sha != null && !BLOB_SHA.test(body.sha)) return respond(400, { error: 'BAD_SHA' });
+      const current = await readFile(repo, branch, cfg.path);
+      if (current.corrupt) return respond(502, { error: 'CORRUPT' });
+      const v = cfg.validate(body?.content, current.data);
+      if (v.error) return respond(400, v);
+      const { status, json } = await github('PUT', `/repos/${repo}/contents/${cfg.path}`, {
+        message: `Update ${configMatch[1]} (by ${who.name})`,
+        content: encodeBase64Utf8(v.content),
+        branch,
+        sha: body.sha || undefined,
+        author: authorFor(who.name)
+      });
+      const bad = writeOutcome(status, json, !!body.sha);
+      if (bad) return bad;
+      return respond(200, { sha: json.content?.sha });
+    }
+    return respond(405, { error: 'METHOD' });
+  }
 
   if (method === 'GET') {
     const list = await loadFacilitators(repo, branch, { fresh: true });
     if (list.error) return respond(502, { error: 'FACILITATORS_UNREADABLE' });
-    // Hashes are public anyway, but the panel has no use for them; names and expiries only.
+    // Hashes are included: the panel replaces the whole list on save and must resend the
+    // entries it did not change. The file is public, so nothing is exposed here that
+    // isn't already. The admin's own hash is still withheld — the panel never writes it.
     return respond(200, {
       sha: list.sha,
       admin: list.admin ? { name: list.admin.name } : null,
-      facilitators: list.facilitators.map(f => ({ name: f.name, expires: f.expires || null }))
+      facilitators: list.facilitators.map(f => ({ name: f.name, hash: f.hash, expires: f.expires || null }))
     });
   }
 

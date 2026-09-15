@@ -1697,7 +1697,7 @@
   // redirected to render into the roster's own DOM elements instead of a separate
   // Roadmap section, since currentLane is now derived from the roster's activeType.
   function renderGoalsStrip(){
-    document.getElementById('currentTypeLabel').textContent = activeType;
+    document.getElementById('currentTypeLabel').textContent = MismoStore.typeName(activeType);
   }
 
   function renderTypeSidebar(){
@@ -1724,7 +1724,7 @@
         `<div class="mini-seg" style="width:${(counts[key] / total * 100).toFixed(1)}%; background:var(${statusColorVar[key]});"></div>`
       ).join('');
       html += `<div class="type-row ${type === activeType ? 'active' : ''}" data-type-select="${escapeAttr(type)}">
-        <div class="type-row-top"><span class="type-name">${escapeHtml(type)}</span><span class="type-count">${total}</span></div>
+        <div class="type-row-top"><span class="type-name">${escapeHtml(MismoStore.typeName(type))}</span><span class="type-count">${total}</span></div>
         <div class="mini-bar">${segs}</div>
       </div>`;
     });
@@ -1750,7 +1750,7 @@
     const matchingRows = [];
     rosterData.forEach((row, idx) => {
       const typeMatch = row.type === activeType;
-      const haystack = `${row.type} ${row.org} ${row.primaryContact} ${row.title||''} ${row.email||''} ${row.participants} ${row.notes} ${row.roadblocks||''}`.toLowerCase();
+      const haystack = `${row.type} ${MismoStore.typeName(row.type)} ${row.org} ${row.primaryContact} ${row.title||''} ${row.email||''} ${row.participants} ${row.notes} ${row.roadblocks||''}`.toLowerCase();
       const textMatch = q === '' || haystack.includes(q);
       if (typeMatch && textMatch) matchingRows.push({ row, idx });
     });
@@ -2347,8 +2347,18 @@
   // saved data comes back. hasLoadedFromStorage only flips once the read has actually
   // finished — an unreadable file must not be mistaken for an empty one, or the next save
   // would commit defaults over real data.
+  // Every <option> whose value is a type key shows that key's current display name.
+  // Values stay as keys — that's what the code and the saved data use.
+  function relabelTypeOptions(){
+    document.querySelectorAll('select.type-select option, #addCompanyTypeSelect option').forEach(function(o){
+      o.textContent = MismoStore.typeName(o.value);
+    });
+  }
+
   (async function bootstrapSharedData(){
-    const { rosterFound, laneFound } = await loadSharedData();
+    // Display names and saved data load in parallel; neither blocks first paint.
+    const [ , { rosterFound, laneFound } ] = await Promise.all([ MismoStore.types.load(), loadSharedData() ]);
+    relabelTypeOptions();
     if (rosterFound || laneFound) {
       // The saved roster may not contain the type the page defaulted to, which would leave
       // the sidebar with no active row and the list empty. Re-derive it the same way the
@@ -2363,6 +2373,13 @@
       renderLane();
       renderGoalsStrip();
       renderRosterList();
+    }
+    if (!(rosterFound || laneFound)) {
+      // No saved data, but the display names may differ from the keys — repaint the two
+      // places that show them.
+      renderTypeSidebar();
+      renderLane();
+      renderGoalsStrip();   // the heading above the roster is set here, not in renderLane()
     }
     if (pendingGenericState) {
       applyGenericFieldStates(pendingGenericState);

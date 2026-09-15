@@ -97,8 +97,10 @@ within thirty seconds at most.
 
 **To make a key lapse on a date:** add `"expires": "2027-01-01"` to their entry.
 
-Once the admin panel exists, it edits this file for you through the relay with your
-admin key, and you'll never open it by hand.
+After your admin entry is in the file, use **`admin.html`** on the site for everything
+else: it adds facilitators (generating and showing their passcode once), resets
+passcodes, removes people, sets expiries, and manages the global stakeholder-type list.
+You only open `facilitators.json` by hand to create or rotate your own admin entry.
 
 ## 6. Point the dashboards at the relay
 

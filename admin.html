@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — MISMO Initiative Hub</title>
+<!--
+  Admin panel. Two things live here and nowhere else:
+
+    Facilitators       who can save dashboards. Add, reset a passcode, remove, set an expiry.
+    Stakeholder types  the global list every dashboard reads display names from. Rename,
+                       add, remove (only if no dashboard uses it).
+
+  Everything saves through the relay with the admin key, which is the same key mechanism
+  the dashboards use (dashboard-data.js). Nothing here can change the admin entry itself;
+  that is deliberate — see the relay for why.
+
+  Renames reach the dashboards when the site next deploys, about a minute after saving.
+-->
+<script src="dashboard-data.js"></script>
+<style>
+  :root { --navy:#0b1a33; --brand:#1d4ed8; --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --bg:#f6f7f9; --ok:#166534; --okbg:#dcfce7; --warn:#7c2d12; --warnbg:#fff7ed; --warnline:#fed7aa; --err:#991b1b; --errbg:#fee2e2; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:var(--navy); color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  header h1 { margin:0; font-size:17px; font-weight:600; }
+  header .who { font-size:13px; opacity:.85; }
+  header .who button { margin-left:10px; }
+  main { max-width:980px; margin:20px auto; padding:0 16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:18px 20px; margin-bottom:14px; }
+  h2 { margin:0 0 4px; font-size:15px; }
+  .hint { margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.45; }
+  label { display:block; font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:10px 0 4px; }
+  input[type=text], input[type=password], input[type=date] { width:100%; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:6px; }
+  input.inline { padding:5px 8px; }
+  input[readonly] { background:#fafafa; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .row { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:160px; }
+  button { font:inherit; font-size:13px; font-weight:600; padding:8px 13px; border-radius:6px; border:1px solid var(--navy); background:var(--navy); color:#fff; cursor:pointer; white-space:nowrap; }
+  button.secondary { background:#fff; color:var(--navy); }
+  button.danger { background:#fff; color:var(--err); border-color:#fca5a5; }
+  button.small { padding:5px 9px; font-size:12px; }
+  button:disabled { opacity:.45; cursor:default; }
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:14px; }
+  .tab { padding:9px 14px; font-size:13.5px; font-weight:600; color:var(--muted); background:none; border:none; border-bottom:2px solid transparent; border-radius:0; cursor:pointer; }
+  .tab.active { color:var(--navy); border-bottom-color:var(--navy); }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); padding:8px 8px; border-bottom:1px solid var(--line); }
+  td { padding:8px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  td.actions { text-align:right; white-space:nowrap; }
+  td.muted, .muted { color:var(--muted); }
+  .key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; color:var(--muted); }
+  .badge { display:inline-block; font-size:11px; font-weight:600; padding:2px 7px; border-radius:999px; background:#eef2ff; color:#3730a3; margin-right:4px; text-transform:uppercase; }
+  .note { font-size:13px; padding:10px 12px; border-radius:6px; border:1px solid; margin:10px 0 0; line-height:1.45; }
+  .note.warn { background:var(--warnbg); border-color:var(--warnline); color:var(--warn); }
+  .note.err { background:var(--errbg); border-color:#fca5a5; color:var(--err); }
+  .note.ok { background:var(--okbg); border-color:#bbf7d0; color:var(--ok); }
+  .savebar { display:flex; align-items:center; gap:12px; justify-content:flex-end; margin-top:12px; }
+  .savebar .status { font-size:13px; color:var(--muted); }
+  .savebar .status.dirty { color:var(--warn); font-weight:600; }
+  .overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; padding:16px; }
+  .overlay.open { display:flex; }
+  .modal { background:#fff; border-radius:10px; padding:22px; max-width:520px; width:100%; }
+  .modal h3 { margin:0 0 6px; font-size:16px; }
+  .modal pre { background:#0f172a; color:#e2e8f0; padding:14px; border-radius:6px; font-size:16px; letter-spacing:.04em; text-align:center; margin:10px 0; user-select:all; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MISMO Initiative Hub — Admin</h1>
+  <div class="who" id="who"></div>
+</header>
+<main>
+
+  <!-- ===== sign in ===== -->
+  <section class="card" id="signin">
+    <h2>Sign in with your admin key</h2>
+    <p class="hint">The same display name and passcode you'd use to save a dashboard. It stays in this browser only.</p>
+    <div class="row">
+      <div><label for="siName">Display name</label><input type="text" id="siName" autocomplete="username"></div>
+      <div><label for="siPass">Passcode</label><input type="password" id="siPass" autocomplete="current-password"></div>
+      <button id="siBtn">Sign in</button>
+    </div>
+    <div class="note err hidden" id="siErr"></div>
+  </section>
+
+  <!-- ===== panel ===== -->
+  <div id="panel" class="hidden">
+    <div class="tabs">
+      <button class="tab active" data-tab="fac">Facilitators</button>
+      <button class="tab" data-tab="types">Stakeholder types</button>
+    </div>
+
+    <!-- ----- facilitators ----- -->
+    <section id="tab-fac">
+      <div class="card">
+        <h2>Facilitators</h2>
+        <p class="hint">People who can save dashboards. Their display name becomes the author on their saves. Removing someone takes effect on their next save.</p>
+        <table id="facTable">
+          <thead><tr><th>Name</th><th>Expires</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note warn hidden" id="facEmpty">No facilitators yet. Add the first one below.</div>
+      </div>
+      <div class="card">
+        <h2>Add a facilitator</h2>
+        <p class="hint">A passcode is generated for them and shown once. Copy it and pass it on; it can't be looked up afterwards.</p>
+        <div class="row">
+          <div><label for="facName">Display name</label><input type="text" id="facName" placeholder="Jane Facilitator"></div>
+          <div><label for="facExp">Expires (optional)</label><input type="date" id="facExp"></div>
+          <button id="facAdd">Add and generate passcode</button>
+        </div>
+        <div class="note err hidden" id="facErr"></div>
+      </div>
+      <div class="savebar">
+        <span class="status" id="facStatus">No changes</span>
+        <button class="secondary" id="facReload">Discard changes</button>
+        <button id="facSave" disabled>Save facilitators</button>
+      </div>
+    </section>
+
+    <!-- ----- stakeholder types ----- -->
+    <section id="tab-types" class="hidden">
+      <div class="card">
+        <h2>Stakeholder types</h2>
+        <p class="hint">The global list every dashboard reads. Change a <strong>display name</strong> and it shows everywhere that type appears, on every dashboard, after the site next deploys (about a minute). The <strong>key</strong> is what the dashboards and saved data use internally; it never changes.</p>
+        <table id="typeTable">
+          <thead><tr><th style="width:40%">Display name</th><th>Key</th><th>Used by</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note warn" style="margin-top:12px">A type can be removed only when no dashboard uses it. Adding a type here makes it <em>available</em>; a dashboard adopts it by adding a lane in its own code, which is a developer change. Merging two keys into one is also a dashboard change, not a rename.</div>
+      </div>
+      <div class="card">
+        <h2>Add a type</h2>
+        <p class="hint">The key is set from the display name at creation and is fixed from then on. Pick a name that reads well as a heading.</p>
+        <div class="row">
+          <div><label for="typeName">Display name</label><input type="text" id="typeName" placeholder="Title Agent"></div>
+          <button id="typeAdd">Add type</button>
+        </div>
+        <div class="note err hidden" id="typeErr"></div>
+      </div>
+      <div class="savebar">
+        <span class="status" id="typeStatus">No changes</span>
+        <button class="secondary" id="typeReload">Discard changes</button>
+        <button id="typeSave" disabled>Save types</button>
+      </div>
+    </section>
+
+    <div class="note err hidden" id="globalErr" style="margin-top:12px"></div>
+  </div>
+</main>
+
+<!-- passcode reveal -->
+<div class="overlay" id="reveal">
+  <div class="modal">
+    <h3 id="revealTitle">Passcode for Jane Facilitator</h3>
+    <p class="hint">Give this to them now. It is not stored anywhere and cannot be shown again. Nothing is live until you click Save facilitators.</p>
+    <pre id="revealCode"></pre>
+    <div class="row" style="justify-content:flex-end"><div></div><button class="secondary" id="revealCopy">Copy</button><button id="revealClose">Done</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const S = window.MismoStore;
+
+  /* ---------- state ---------- */
+  let fac = { sha:null, admin:null, list:[], dirty:false };
+  let types = { sha:null, list:[], usage:{}, dirty:false };
+
+  /* ---------- sign in ---------- */
+  function showSignedIn(){
+    $('who').innerHTML = `Signed in as <strong>${esc(S.keyName())}</strong><button class="secondary small" id="signout">Sign out</button>`;
+    $('signout').addEventListener('click', () => { S.setKey(''); location.reload(); });
+    $('signin').classList.add('hidden'); $('panel').classList.remove('hidden');
+  }
+  async function trySignIn(){
+    $('siErr').classList.add('hidden');
+    const r = await S.facilitators.get();
+    if (!r.ok) {
+      const msg = r.reason === 'ADMIN_ONLY' ? 'That key works for saving dashboards but is not the admin key.' : S.explain(r.reason);
+      $('siErr').textContent = msg; $('siErr').classList.remove('hidden');
+      if (r.reason !== 'NO_RELAY') S.setKey('');
+      return false;
+    }
+    showSignedIn();
+    applyFac(r); renderFac();
+    await loadTypes();
+    return true;
+  }
+  $('siBtn').addEventListener('click', async () => {
+    const n = $('siName').value.trim(), p = $('siPass').value.trim();
+    if (!n || !p) return;
+    S.setKey(n + ':' + p);
+    $('siPass').value = '';
+    await trySignIn();
+  });
+  $('siPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('siBtn').click(); });
+
+  /* ---------- tabs ---------- */
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    $('tab-fac').classList.toggle('hidden', t.dataset.tab !== 'fac');
+    $('tab-types').classList.toggle('hidden', t.dataset.tab !== 'types');
+  }));
+
+  /* ---------- helpers ---------- */
+  function setStatus(id, dirty, text){
+    const el = $(id); el.textContent = text || (dirty ? 'Unsaved changes' : 'No changes'); el.classList.toggle('dirty', !!dirty);
+  }
+  function showErr(id, msg){ const el = $(id); if (!msg){ el.classList.add('hidden'); return; } el.textContent = msg; el.classList.remove('hidden'); }
+  function reveal(name, code){
+    $('revealTitle').textContent = `Passcode for ${name}`;
+    $('revealCode').textContent = code;
+    $('reveal').classList.add('open');
+  }
+  $('revealClose').addEventListener('click', () => { $('revealCode').textContent = ''; $('reveal').classList.remove('open'); });
+  $('revealCopy').addEventListener('click', async e => { try { await navigator.clipboard.writeText($('revealCode').textContent); e.target.textContent = 'Copied'; setTimeout(() => e.target.textContent = 'Copy', 1200); } catch (_) {} });
+  window.addEventListener('beforeunload', e => { if (fac.dirty || types.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ---------- facilitators ---------- */
+  function applyFac(r){ fac = { sha:r.sha, admin:r.admin, list:(r.facilitators||[]).map(f => ({...f})), dirty:false }; }
+  function renderFac(){
+    const tb = $('facTable').querySelector('tbody');
+    tb.innerHTML = fac.list.map((f, i) => `
+      <tr>
+        <td><strong>${esc(f.name)}</strong></td>
+        <td><input type="date" class="inline" data-exp="${i}" value="${esc(f.expires || '')}"></td>
+        <td class="actions">
+          <button class="secondary small" data-reset="${i}">Reset passcode</button>
+          <button class="danger small" data-remove="${i}">Remove</button>
+        </td>
+      </tr>`).join('');
+    $('facEmpty').classList.toggle('hidden', fac.list.length > 0);
+    $('facSave').disabled = !fac.dirty;
+    setStatus('facStatus', fac.dirty);
+  }
+  function markFac(){ fac.dirty = true; renderFac(); }
+  $('facTable').addEventListener('click', async e => {
+    const rs = e.target.closest('[data-reset]'), rm = e.target.closest('[data-remove]');
+    if (rs) {
+      const f = fac.list[+rs.dataset.reset];
+      const code = S.facilitators.generatePasscode();
+      f.hash = await S.facilitators.sha256Hex(code);
+      reveal(f.name, code); markFac();
+    }
+    if (rm) {
+      const f = fac.list[+rm.dataset.remove];
+      if (confirm(`Remove ${f.name}? Their next save will be refused.`)) { fac.list.splice(+rm.dataset.remove, 1); markFac(); }
+    }
+  });
+  $('facTable').addEventListener('change', e => {
+    const inp = e.target.closest('[data-exp]'); if (!inp) return;
+    const f = fac.list[+inp.dataset.exp];
+    if (inp.value) f.expires = inp.value; else delete f.expires;
+    fac.dirty = true; $('facSave').disabled = false; setStatus('facStatus', true);
+  });
+  $('facAdd').addEventListener('click', async () => {
+    showErr('facErr');
+    const name = $('facName').value.trim();
+    if (!name) return showErr('facErr', 'A display name is needed.');
+    if (fac.admin && name === fac.admin.name) return showErr('facErr', 'That is the admin name; it cannot also be a facilitator.');
+    if (fac.list.some(f => f.name === name)) return showErr('facErr', 'There is already a facilitator with that name.');
+    const code = S.facilitators.generatePasscode();
+    const entry = { name, hash: await S.facilitators.sha256Hex(code) };
+    if ($('facExp').value) entry.expires = $('facExp').value;
+    fac.list.push(entry);
+    $('facName').value = ''; $('facExp').value = '';
+    reveal(name, code); markFac();
+  });
+  $('facReload').addEventListener('click', async () => {
+    if (fac.dirty && !confirm('Discard unsaved facilitator changes?')) return;
+    const r = await S.facilitators.get(); if (r.ok) { applyFac(r); renderFac(); } else showErr('globalErr', S.explain(r.reason));
+  });
+  $('facSave').addEventListener('click', async () => {
+    showErr('globalErr'); setStatus('facStatus', true, 'Saving…');
+    const r = await S.facilitators.put(fac.list.map(f => ({ name:f.name, hash:f.hash, ...(f.expires ? { expires:f.expires } : {}) })), fac.sha);
+    if (r.ok) { fac.sha = r.sha; fac.dirty = false; renderFac(); setStatus('facStatus', false, 'Saved'); return; }
+    if (r.reason === 'REJECTED' && r.detail) return showErr('globalErr', `Not saved: ${r.detail.error}${r.detail.name ? ' (' + r.detail.name + ')' : ''}. Fix the entry and try again.`);
+    setStatus('facStatus', true); showErr('globalErr', S.explain(r.reason));
+  });
+
+  /* ---------- stakeholder types ---------- */
+  async function loadTypes(){
+    const r = await S.config.get('stakeholder-types');
+    if (!r.ok) return showErr('globalErr', S.explain(r.reason));
+    const c = r.content || { types:[], usage:{} };
+    types = { sha:r.sha, list:(c.types||[]).map(t => ({...t})), usage:c.usage||{}, dirty:false };
+    renderTypes();
+  }
+  function usedBy(key){ return Object.entries(types.usage).filter(([, ks]) => ks.includes(key)).map(([d]) => d); }
+  function renderTypes(){
+    const tb = $('typeTable').querySelector('tbody');
+    tb.innerHTML = types.list.map((t, i) => {
+      const used = usedBy(t.key);
+      return `<tr>
+        <td><input type="text" class="inline" data-name="${i}" value="${esc(t.name)}"></td>
+        <td class="key">${esc(t.key)}</td>
+        <td>${used.length ? used.map(d => `<span class="badge">${esc(d)}</span>`).join('') : '<span class="muted">—</span>'}</td>
+        <td class="actions"><button class="danger small" data-rmtype="${i}" ${used.length ? 'disabled title="In use by ' + esc(used.join(', ')) + '"' : ''}>Remove</button></td>
+      </tr>`;
+    }).join('');
+    $('typeSave').disabled = !types.dirty;
+    setStatus('typeStatus', types.dirty);
+  }
+  $('typeTable').addEventListener('input', e => {
+    const inp = e.target.closest('[data-name]'); if (!inp) return;
+    types.list[+inp.dataset.name].name = inp.value;
+    types.dirty = true; $('typeSave').disabled = false; setStatus('typeStatus', true);
+  });
+  $('typeTable').addEventListener('click', e => {
+    const rm = e.target.closest('[data-rmtype]'); if (!rm || rm.disabled) return;
+    const t = types.list[+rm.dataset.rmtype];
+    if (confirm(`Remove the type "${t.name}"? No dashboard uses it.`)) { types.list.splice(+rm.dataset.rmtype, 1); types.dirty = true; renderTypes(); }
+  });
+  $('typeAdd').addEventListener('click', () => {
+    showErr('typeErr');
+    const name = $('typeName').value.trim();
+    if (!name) return showErr('typeErr', 'A display name is needed.');
+    if (types.list.some(t => t.key === name || t.name.toLowerCase() === name.toLowerCase())) return showErr('typeErr', 'A type with that name already exists.');
+    types.list.push({ key:name, name });
+    types.list.sort((a, b) => a.name.localeCompare(b.name));
+    $('typeName').value = ''; types.dirty = true; renderTypes();
+  });
+  $('typeReload').addEventListener('click', async () => {
+    if (types.dirty && !confirm('Discard unsaved type changes?')) return;
+    await loadTypes();
+  });
+  $('typeSave').addEventListener('click', async () => {
+    showErr('globalErr');
+    const trimmed = types.list.map(t => ({ key:t.key, name:t.name.trim() }));
+    const blank = trimmed.find(t => !t.name);
+    if (blank) return showErr('globalErr', `"${blank.key}" needs a display name.`);
+    const seen = new Set();
+    for (const t of trimmed) { const n = t.name.toLowerCase(); if (seen.has(n)) return showErr('globalErr', `Two types would show as "${t.name}". Display names must be distinct.`); seen.add(n); }
+    setStatus('typeStatus', true, 'Saving…');
+    const r = await S.config.put('stakeholder-types', { types: trimmed }, types.sha);
+    if (r.ok) { types.sha = r.sha; types.list = trimmed; types.dirty = false; renderTypes(); setStatus('typeStatus', false, 'Saved — dashboards pick this up on their next deploy'); return; }
+    if (r.reason === 'REJECTED' && r.detail) return showErr('globalErr', r.detail.error === 'IN_USE' ? `"${r.detail.key}" is still used by ${r.detail.dashboard} and cannot be removed.` : `Not saved: ${r.detail.error}${r.detail.key ? ' (' + r.detail.key + ')' : ''}.`);
+    setStatus('typeStatus', true); showErr('globalErr', S.explain(r.reason));
+  });
+
+  /* ---------- boot ---------- */
+  if (S.hasKey()) trySignIn();
+})();
+</script>
+</body>
+</html>

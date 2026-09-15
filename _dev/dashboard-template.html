@@ -2704,8 +2704,18 @@ silently; if a save cannot happen, the user must be told.
 
   // Load the committed data once, for every visitor. Runs after the initial render so the
   // page paints defaults immediately, then repaints if saved data comes back.
+  // Global display names (stakeholder-types.json). PARTIAL in this template: the table's
+  // type dropdown is relabelled, but the lane chips are labelled from laneLabels and the
+  // roster uses a free-text type input, neither of which can carry a separate display
+  // name. The four live dashboards do this fully via ROSTER_TYPE_TO_LANE; bringing the
+  // template to that layout is the structural re-sync recorded in CLAUDE.md.
+  function relabelTypeOptions(){
+    document.querySelectorAll('select.type-select option').forEach(function(o){ o.textContent = MismoStore.typeName(o.value); });
+  }
+
   (async function bootstrapSharedData(){
-    const { rosterFound, laneFound } = await loadSharedData();
+    const [ , { rosterFound, laneFound } ] = await Promise.all([ MismoStore.types.load(), loadSharedData() ]);
+    relabelTypeOptions();
     if (rosterFound || laneFound) {
       renderChips();
       renderLane();
