@@ -13,6 +13,10 @@
       "name": "Compliance Vendor"
     },
     {
+      "key": "Document Provider",
+      "name": "Document Provider"
+    },
+    {
       "key": "eMortgage Technology Providers",
       "name": "eMortgage Technology Providers"
     },
@@ -23,6 +27,10 @@
     {
       "key": "Investors/Aggregators",
       "name": "Investors/Aggregators"
+    },
+    {
+      "key": "Law Firm",
+      "name": "Law Firm"
     },
     {
       "key": "Lender (3rd Party LOS)",
@@ -55,6 +63,10 @@
     {
       "key": "Third-Party Reviewer",
       "name": "Third-Party Reviewer"
+    },
+    {
+      "key": "Trade Association",
+      "name": "Trade Association"
     },
     {
       "key": "Warehouse Lenders",

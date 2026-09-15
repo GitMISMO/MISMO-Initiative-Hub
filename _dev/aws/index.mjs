@@ -121,6 +121,10 @@ function validatePotential(id, body, typeKeys) {
     if (!ENGAGEMENTS.has(engagement)) return { error: 'BAD_ENGAGEMENT', org };
     organizations.push({ org, type, engagement, contact: str(o?.contact, 160), barrier: str(o?.barrier, 400), notes: str(o?.notes, 2000) });
   }
+  const potentialSolutions = [];
+  for (const x of Array.isArray(body.potentialSolutions) ? body.potentialSolutions : []) {
+    const t = str(x, 400); if (t) potentialSolutions.push(t);
+  }
   const updates = [];
   for (const u of Array.isArray(body.updates) ? body.updates : []) {
     const text = str(u?.text, 2000), by = str(u?.by, 120), at = str(u?.at, 40);
@@ -133,7 +137,7 @@ function validatePotential(id, body, typeKeys) {
     id, name, domain: str(body.domain, 80), stage,
     summary: str(body.summary, 4000), whyRaised: str(body.whyRaised, 4000),
     broughtBy: str(body.broughtBy, 200), dateLogged,
-    stakeholderTypes, organizations, updates
+    potentialSolutions, stakeholderTypes, organizations, updates
   } };
 }
 const BLOB_SHA = /^[0-9a-f]{40}$/;

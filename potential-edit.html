@@ -103,6 +103,7 @@
       </div>
       <label for="fSummary">Summary</label><textarea id="fSummary"></textarea>
       <label for="fWhy">Why it was raised</label><textarea id="fWhy"></textarea>
+      <label for="fSolutions">Potential solutions — one per line</label><textarea id="fSolutions" placeholder="What the initiative might produce: templates, standards, guidance…"></textarea>
     </section>
 
     <section class="card">
@@ -143,19 +144,21 @@
   const editId = new URLSearchParams(location.search).get('id') || '';
   let rec = null, sha = null, typeKeys = new Set(), allTypes = [], idOverride = '';
 
-  function blank(){ return { name:'', domain:'', stage:'not-started', broughtBy:'', dateLogged:new Date().toISOString().slice(0,10), summary:'', whyRaised:'', stakeholderTypes:[], organizations:[], updates:[] }; }
+  function blank(){ return { name:'', domain:'', stage:'not-started', broughtBy:'', dateLogged:'', summary:'', whyRaised:'', potentialSolutions:[], stakeholderTypes:[], organizations:[], updates:[] }; }
   function currentId(){ return editId || idOverride || P.slug($('fName').value); }
 
   /* ----- form <-> record ----- */
   function fill(){
     $('fName').value = rec.name || ''; $('fDomain').value = rec.domain || ''; $('fBroughtBy').value = rec.broughtBy || '';
     $('fDate').value = rec.dateLogged || ''; $('fSummary').value = rec.summary || ''; $('fWhy').value = rec.whyRaised || '';
+    $('fSolutions').value = (rec.potentialSolutions || []).join('\n');
     $('fStage').innerHTML = P.STAGES.map(s => `<option value="${s.key}" ${s.key === (rec.stage||'not-started') ? 'selected' : ''}>${esc(s.label)}</option>`).join('');
     renderChips(); renderOrgs(); renderUpds(); renderIdLine();
   }
   function read(){
     rec.name = $('fName').value; rec.domain = $('fDomain').value; rec.broughtBy = $('fBroughtBy').value; rec.dateLogged = $('fDate').value;
     rec.summary = $('fSummary').value; rec.whyRaised = $('fWhy').value; rec.stage = $('fStage').value;
+    rec.potentialSolutions = $('fSolutions').value.split('\n').map(x => x.trim()).filter(Boolean);
     rec.stakeholderTypes = [...document.querySelectorAll('#typeChips input:checked')].map(i => i.value);
     rec.organizations = [...$('orgTable').querySelectorAll('tbody tr')].map(tr => ({ org: tr.querySelector('[data-f=org]').value, type: tr.querySelector('[data-f=type]').value, engagement: tr.querySelector('[data-f=eng]').value, contact: tr.querySelector('[data-f=contact]').value, barrier: tr.querySelector('[data-f=barrier]').value, notes: tr.dataset.notes || '' }));
     rec.updates = [...$('updTable').querySelectorAll('tbody tr')].map(tr => ({ text: tr.querySelector('[data-f=text]').value, by: tr.querySelector('[data-f=by]').value, at: tr.querySelector('[data-f=at]').value || new Date().toISOString() }));

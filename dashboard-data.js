@@ -386,6 +386,8 @@
       if (!POT.ENGAGEMENTS.some(function (x) { return x.key === eng; })) problems.push('Organization "' + org + '" has unknown engagement "' + eng + '".');
       orgs.push({ org: org, type: type, engagement: eng, contact: str(o && o.contact, 160), barrier: str(o && o.barrier, 400), notes: str(o && o.notes, 2000) });
     });
+    var solutions = [];
+    (Array.isArray(r.potentialSolutions) ? r.potentialSolutions : []).forEach(function (x) { var t = str(x, 400); if (t) solutions.push(t); });
     var updates = [];
     (Array.isArray(r.updates) ? r.updates : []).forEach(function (u, i) {
       var text = str(u && u.text, 2000), by = str(u && u.by, 120), at = str(u && u.at, 40);
@@ -396,7 +398,7 @@
     updates.sort(function (a, b) { return Date.parse(b.at) - Date.parse(a.at); });
     return { problems: problems, content: {
       name: name, domain: str(r.domain, 80), stage: stage, summary: str(r.summary, 4000), whyRaised: str(r.whyRaised, 4000),
-      broughtBy: str(r.broughtBy, 200), dateLogged: dateLogged, stakeholderTypes: types, organizations: orgs, updates: updates
+      broughtBy: str(r.broughtBy, 200), dateLogged: dateLogged, potentialSolutions: solutions, stakeholderTypes: types, organizations: orgs, updates: updates
     } };
   }
   function potentialSlug(name) {

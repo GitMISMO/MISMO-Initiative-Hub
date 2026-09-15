@@ -66,6 +66,7 @@
   .ov p{margin:0 0 14px; line-height:1.55;}
   .ov .meta > div{margin-bottom:12px;}
   .muted{color:var(--slate-text); font-style:italic;}
+  ul.sol{margin:0; padding-left:20px; line-height:1.7;} ul.sol li{margin:2px 0;}
   .addrow{display:flex; gap:8px; margin-bottom:14px;}
   .addrow input{flex:1; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px;}
   .addrow input.by{flex:0 0 180px;}
@@ -177,6 +178,8 @@
           <div><div class="lbl">Status updates</div>${updates.length} logged</div>
         </div>
       </div></div>
+
+      ${(rec.potentialSolutions || []).length ? `<div class="card"><div class="sec">Potential solutions</div><div class="body"><ul class="sol">${rec.potentialSolutions.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div></div>` : ''}
 
       <div class="card"><div class="sec">Status updates</div><div class="body">
         <div class="addrow">

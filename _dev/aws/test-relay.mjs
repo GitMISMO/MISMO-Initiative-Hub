@@ -152,3 +152,6 @@ r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null
 ok('missing name refused', r.statusCode===400 && J(r).error==='BAD_NAME');
 r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null, content:{...good, updates:[{text:'',by:'x'}]}}));
 ok('empty update refused', r.statusCode===400 && J(r).error==='BAD_UPDATE');
+r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null, content:{...good, potentialSolutions:['  Template A ', '', 'Guidance B']}}));
+{ const w = JSON.parse(Buffer.from(calls.filter(c=>c.method==='PUT' && c.url.includes('/x.json')).at(-1).body.content,'base64').toString());
+  ok('potentialSolutions kept, trimmed, blanks dropped', r.statusCode===200 && w.potentialSolutions.join('|')==='Template A|Guidance B'); }
