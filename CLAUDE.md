@@ -233,14 +233,19 @@ comments, and it's the same tradeoff already live on all four real dashboards
    code alone but were visibly wrong once rendered (a fixed pixel offset that
    worked for one dashboard's row height and broke on a shorter row is a
    good example of why "looks right in the diff" isn't sufficient).
-6. **Test what you claim, not what you built.** The conflict lock looked
+6. **After any change to `dashboard-data.js`, run `python3 _dev/bump-module-version.py`.**
+   Every page includes the module with `?v=<content hash>`; the script rewrites
+   them. Without it, a visitor's browser keeps a cached older module and a new
+   page fails on a function that doesn't exist yet — it shows as a page stuck
+   on "Loading…". This happened on the first real potential-initiative page.
+7. **Test what you claim, not what you built.** The conflict lock looked
    right in the code and passed every render test; it only fails when two
    people save. It was caught by intercepting `api.github.com` with a
    Playwright `page.route`, checking the SHA in the PUT body against
    `git hash-object` of the file the page read, and asserting a mocked 409
    surfaces as a conflict. Any claim about concurrency, persistence or
    security needs a test that exercises the claim.
-7. Only after all of the above passes, copy to the deploy location and `git
+8. Only after all of the above passes, copy to the deploy location and `git
    push`.
 
 ## Deployment workflow
