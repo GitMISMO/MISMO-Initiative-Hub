@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Facilitator key helper — MISMO Initiative Hub</title>
+<!--
+  Generates a facilitator passcode and the SHA-256 hash that goes in facilitators.json.
+  Runs entirely in this browser tab. It makes no network requests: open it from disk
+  or from the repo, and nothing you type or generate leaves the page.
+
+  Use it to:
+    1. Create the admin entry the first time (paste the snippet into facilitators.json).
+    2. Add a facilitator by hand until the admin panel exists.
+    3. Reset someone's passcode.
+-->
+<style>
+  :root { --navy:#0b1a33; --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --bg:#f6f7f9; --ok:#166534; --okbg:#dcfce7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:var(--navy); color:#fff; padding:18px 24px; }
+  header h1 { margin:0; font-size:18px; font-weight:600; letter-spacing:.2px; }
+  header p { margin:4px 0 0; font-size:13px; opacity:.8; }
+  main { max-width:760px; margin:24px auto; padding:0 16px; }
+  section { background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px; margin-bottom:16px; }
+  h2 { margin:0 0 6px; font-size:15px; }
+  .hint { margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.45; }
+  label { display:block; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:12px 0 4px; }
+  input[type=text] { width:100%; font:inherit; padding:9px 10px; border:1px solid var(--line); border-radius:6px; }
+  input[readonly] { background:#fafafa; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; }
+  .row { display:flex; gap:8px; align-items:flex-end; }
+  .row > div { flex:1; }
+  button { font:inherit; font-size:13px; font-weight:600; padding:9px 14px; border-radius:6px; border:1px solid var(--navy); background:var(--navy); color:#fff; cursor:pointer; white-space:nowrap; }
+  button.secondary { background:#fff; color:var(--navy); }
+  button:disabled { opacity:.5; cursor:default; }
+  pre { background:#0f172a; color:#e2e8f0; padding:14px; border-radius:6px; font-size:12.5px; overflow:auto; margin:8px 0 0; }
+  .note { font-size:13px; padding:10px 12px; border-radius:6px; background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; margin-top:12px; }
+  .ok { background:var(--okbg); color:var(--ok); border-color:#bbf7d0; }
+  .copied { font-size:12px; color:var(--ok); margin-left:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Facilitator key helper</h1>
+  <p>Makes a passcode and the hash that goes in <code>facilitators.json</code>. Nothing leaves this page.</p>
+</header>
+<main>
+
+  <section>
+    <h2>1. Who is this key for?</h2>
+    <p class="hint">Their display name, exactly as they'll type it when they save. It becomes the author on their commits, so use a real name.</p>
+    <label for="name">Display name</label>
+    <input type="text" id="name" placeholder="Jane Facilitator" autocomplete="off">
+    <label>Role</label>
+    <div class="row">
+      <div><label style="margin:0;text-transform:none;font-weight:500;color:var(--ink)"><input type="radio" name="role" value="facilitator" checked> Facilitator — can save dashboards</label></div>
+      <div><label style="margin:0;text-transform:none;font-weight:500;color:var(--ink)"><input type="radio" name="role" value="admin"> Admin — can also manage facilitators</label></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Passcode</h2>
+    <p class="hint">Generate one. Don't make one up: the hash is public, and only a random passcode stays safe once its hash can be seen.</p>
+    <div class="row">
+      <div>
+        <label for="pass">Passcode — give this to the person once, then close the tab</label>
+        <input type="text" id="pass" readonly placeholder="Click Generate">
+      </div>
+      <button id="gen">Generate</button>
+      <button id="copyPass" class="secondary" disabled>Copy</button>
+    </div>
+    <div class="row">
+      <div>
+        <label for="hash">SHA-256 hash — this is what goes in the file</label>
+        <input type="text" id="hash" readonly>
+      </div>
+      <button id="copyHash" class="secondary" disabled>Copy</button>
+    </div>
+    <p class="hint" style="margin-top:10px">Resetting someone's passcode? Generate a new one and replace their hash. The old passcode stops working the moment the file is committed.</p>
+  </section>
+
+  <section>
+    <h2>3. Paste into <code>facilitators.json</code></h2>
+    <p class="hint" id="snippetHint">For a facilitator, add this object to the <code>facilitators</code> array.</p>
+    <pre id="snippet">{ "name": "", "hash": "" }</pre>
+    <div class="row" style="margin-top:8px"><div></div><button id="copySnippet" class="secondary" disabled>Copy snippet</button></div>
+    <div class="note" id="adminNote" style="display:none">
+      <strong>Admin key:</strong> keep a copy of the passcode in a password manager. Facilitators' passcodes can be regenerated from the admin panel; yours can only be reset by editing the file directly.
+    </div>
+  </section>
+
+</main>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const nameEl=$('name'), passEl=$('pass'), hashEl=$('hash'), snippet=$('snippet');
+  const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'; // no 0/O/1/l/I
+
+  function generate(){
+    const bytes = new Uint8Array(20);
+    crypto.getRandomValues(bytes);
+    let out='';
+    for (let i=0;i<bytes.length;i++){ out += ALPHABET[bytes[i] % ALPHABET.length]; if ((i+1)%5===0 && i<bytes.length-1) out+='-'; }
+    return out;   // 20 chars from a 54-symbol alphabet ≈ 115 bits
+  }
+  async function sha256hex(s){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  function role(){ return document.querySelector('input[name=role]:checked').value; }
+  function render(){
+    const entry = { name: nameEl.value.trim(), hash: hashEl.value };
+    if (role()==='admin'){
+      snippet.textContent = '"admin": ' + JSON.stringify(entry, null, 2).replace(/\n/g,'\n');
+      $('snippetHint').innerHTML = 'For the admin, replace the <code>"admin": null</code> line with this.';
+      $('adminNote').style.display='block';
+    } else {
+      snippet.textContent = JSON.stringify(entry, null, 2);
+      $('snippetHint').innerHTML = 'For a facilitator, add this object to the <code>facilitators</code> array. Optional: add <code>"expires": "2027-01-01"</code> to make it lapse.';
+      $('adminNote').style.display='none';
+    }
+    const ready = entry.name && entry.hash;
+    $('copySnippet').disabled = !ready;
+  }
+  async function copy(text, btn){
+    try { await navigator.clipboard.writeText(text); } catch(e){ /* fall back to select */ }
+    const tag=document.createElement('span'); tag.className='copied'; tag.textContent='Copied';
+    btn.after(tag); setTimeout(()=>tag.remove(),1200);
+  }
+
+  $('gen').addEventListener('click', async ()=>{
+    const p = generate();
+    passEl.value = p;
+    hashEl.value = await sha256hex(p);
+    $('copyPass').disabled = false; $('copyHash').disabled = false;
+    render();
+  });
+  nameEl.addEventListener('input', render);
+  document.querySelectorAll('input[name=role]').forEach(r=>r.addEventListener('change', render));
+  $('copyPass').addEventListener('click', e=>copy(passEl.value, e.target));
+  $('copyHash').addEventListener('click', e=>copy(hashEl.value, e.target));
+  $('copySnippet').addEventListener('click', e=>copy(snippet.textContent, e.target));
+
+  if (!window.isSecureContext || !crypto.subtle){
+    document.querySelector('main').insertAdjacentHTML('afterbegin',
+      '<div class="note">This page needs a secure context to hash. Open it via https or from your own disk (file://), not over plain http.</div>');
+    $('gen').disabled = true;
+  }
+  render();
+})();
+</script>
+</body>
+</html>

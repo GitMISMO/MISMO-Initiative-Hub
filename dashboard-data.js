@@ -155,7 +155,7 @@
       var body = null;
       try { body = await res.json(); } catch (e) {}
 
-      if (res.status === 401) return { ok: false, reason: 'KEY_BAD' };
+      if (res.status === 401) return { ok: false, reason: (body && body.error === 'KEY_EXPIRED') ? 'KEY_EXPIRED' : 'KEY_BAD' };
       if (res.status === 403) return { ok: false, reason: 'ORIGIN' };
       if (res.status === 409) return { ok: false, reason: 'CONFLICT' };
       if (res.status === 422) return { ok: false, reason: 'REJECTED' };
@@ -176,6 +176,8 @@
       case 'NO_TOKEN':    // older name used by the dashboards' Save handler
       case 'NO_KEY':      return 'Add your facilitator key to save. Your edits stay on this page until you do.';
       case 'KEY_BAD':     return 'That facilitator key was not recognised. Check the name and passcode, or ask the site owner for a new one.';
+      case 'KEY_EXPIRED': return 'Your facilitator key has expired. Ask the site owner for a new one. Your edits are kept on this page.';
+      case 'ADMIN_ONLY':  return 'Only the admin key can manage facilitators.';
       case 'NO_RELAY':    return 'Saving is not connected yet — the site owner still needs to set the relay address in dashboard-data.js. Your edits are kept on this page.';
       case 'ORIGIN':      return 'This copy of the dashboard is not on the official site, so it cannot save. Use the published link.';
       case 'CONFLICT':    return 'Someone else saved while you were editing. Reload to get their changes, then redo yours.';
@@ -235,7 +237,52 @@
     return true;
   }
 
+  /* ---------- facilitator management (admin key only; used by the admin panel) ---------- */
+
+  async function facilitatorsGet() {
+    if (!hasKey()) return { ok: false, reason: 'NO_KEY' };
+    if (!RELAY_URL) return { ok: false, reason: 'NO_RELAY' };
+    try {
+      var res = await relay('/facilitators');
+      var body = null; try { body = await res.json(); } catch (e) {}
+      if (res.status === 401) return { ok: false, reason: (body && body.error === 'KEY_EXPIRED') ? 'KEY_EXPIRED' : 'KEY_BAD' };
+      if (res.status === 403) return { ok: false, reason: (body && body.error === 'ADMIN_ONLY') ? 'ADMIN_ONLY' : 'ORIGIN' };
+      if (!res.ok) return { ok: false, reason: 'RELAY' };
+      return { ok: true, sha: body.sha, admin: body.admin, facilitators: body.facilitators };
+    } catch (e) { return { ok: false, reason: 'NETWORK' }; }
+  }
+
+  /* list: [{name, hash, expires?}] — hashes from sha256Hex below. sha: from facilitatorsGet. */
+  async function facilitatorsPut(list, sha) {
+    if (!hasKey()) return { ok: false, reason: 'NO_KEY' };
+    if (!RELAY_URL) return { ok: false, reason: 'NO_RELAY' };
+    try {
+      var res = await relay('/facilitators', { method: 'PUT', body: { facilitators: list, sha: sha || null } });
+      var body = null; try { body = await res.json(); } catch (e) {}
+      if (res.status === 401) return { ok: false, reason: 'KEY_BAD' };
+      if (res.status === 403) return { ok: false, reason: (body && body.error === 'ADMIN_ONLY') ? 'ADMIN_ONLY' : 'ORIGIN' };
+      if (res.status === 409) return { ok: false, reason: 'CONFLICT' };
+      if (res.status === 400) return { ok: false, reason: 'REJECTED', detail: body };
+      if (!res.ok) return { ok: false, reason: 'RELAY' };
+      return { ok: true, sha: body.sha };
+    } catch (e) { return { ok: false, reason: 'NETWORK' }; }
+  }
+
+  /* Same generator and hash as _dev/aws/key-helper.html, so the panel can mint keys. */
+  function generatePasscode() {
+    var ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    var bytes = new Uint8Array(20); crypto.getRandomValues(bytes);
+    var out = '';
+    for (var i = 0; i < bytes.length; i++) { out += ALPHABET[bytes[i] % ALPHABET.length]; if ((i + 1) % 5 === 0 && i < bytes.length - 1) out += '-'; }
+    return out;
+  }
+  async function sha256Hex(text) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
   window.MismoStore = {
+    facilitators: { get: facilitatorsGet, put: facilitatorsPut, generatePasscode: generatePasscode, sha256Hex: sha256Hex },
     configure: function (opts) {
       cfg.id = opts.id;
       cfg.path = 'data/' + opts.id + '.json';

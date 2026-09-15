@@ -1,8 +1,16 @@
 # Save relay — AWS setup
 
-One Lambda function. It holds the single GitHub token, accepts saves from facilitators
-who present a valid key, and commits them. Nothing is stored in AWS; the repository is
-the data store. Total setup is about ten minutes.
+One Lambda function. It holds the single GitHub token, accepts saves from people who
+present a valid key, and commits them. Nothing is stored in AWS; the repository is the
+data store.
+
+Two jobs, two owners:
+
+- **AWS side** (steps 2–4): create the Lambda and set four environment variables. Done
+  once, by whoever owns the AWS account. Nothing here changes afterwards except the
+  GitHub token when it expires.
+- **Keys** (step 5): who can save. Managed in `facilitators.json` in this repository by
+  the admin, with no AWS access needed. Later, the admin panel edits that file for you.
 
 ## 1. Create the GitHub token the relay will use
 
@@ -33,34 +41,22 @@ After it's created, in the **Code** tab, replace the contents of `index.mjs` wit
 
 ## 3. Environment variables
 
-Configuration → Environment variables → Edit. Add these five:
+Configuration → Environment variables → Edit. Add these four:
 
 | Key | Value |
 |---|---|
 | `GITHUB_TOKEN` | the token from step 1 |
-| `GITHUB_REPO` | `PWCodingLLC/MISMO-Initiative-Hub` |
+| `GITHUB_REPO` | `PWCodingLLC/MISMO-Initiative-Hub` (or the org's path after the move) |
 | `GITHUB_BRANCH` | `main` |
 | `ALLOWED_ORIGIN` | `https://pwcodingllc.github.io` — exactly, no trailing slash |
-| `FACILITATOR_KEYS` | see below |
 
-`FACILITATOR_KEYS` is one facilitator per line, `Display Name=passcode`:
+That's everything AWS needs. Facilitators are **not** configured here — see step 5.
 
-```
-Jane Facilitator=k7Qm-2vXp-9Lrt
-Sam Facilitator=b3Wn-8Ycd-4Hjs
-```
+**To rotate the GitHub token:** replace `GITHUB_TOKEN` and save. Takes effect on the
+next request; no redeploy.
 
-The display name becomes the git author of that person's saves, so use real names.
-Passcodes should be long and random; a password manager's generator is fine. Give
-each person their own line and their own passcode — never share one.
-
-**To revoke a facilitator:** delete their line and save. Takes effect on their next
-save; no redeploy needed.
-
-**To rotate the GitHub token:** replace `GITHUB_TOKEN` and save. Same.
-
-AWS lets you store environment variables encrypted at rest with a KMS key; on by
-default for the console-managed key. That's sufficient here.
+AWS stores environment variables encrypted at rest with a KMS key by default. That's
+sufficient here.
 
 ## 4. Function URL
 
@@ -75,7 +71,36 @@ Configuration → Function URL → Create function URL.
 
 Copy the URL. It looks like `https://abc123xyz.lambda-url.us-east-1.on.aws`.
 
-## 5. Point the dashboards at it
+## 5. Keys — who can save
+
+Keys live in `facilitators.json` at the repository root. It holds one **admin** (you)
+and any number of **facilitators**, each as a display name and the SHA-256 hash of a
+generated passcode. The file is public, which is why it holds hashes, and why passcodes
+must be generated rather than chosen.
+
+Open `_dev/aws/key-helper.html` in a browser — from disk is fine; it makes no network
+requests. For each person:
+
+1. Type their display name. It becomes the git author on their saves, so use a real one.
+2. Pick the role. Make **yourself** the admin first; there is exactly one.
+3. Click Generate. Copy the passcode and give it to the person **once**. It cannot be
+   looked up later — if lost, generate a new one and replace their hash.
+4. Copy the snippet and paste it into `facilitators.json` on GitHub (edit the file in the
+   web UI, commit). The admin snippet replaces the `"admin": null` line; a facilitator
+   snippet goes in the `facilitators` array.
+
+Keep your **own** admin passcode in a password manager. Facilitators' passcodes can be
+regenerated later from the admin panel; yours can only be reset by editing the file.
+
+**To revoke a facilitator:** remove their entry, commit. Their next save is refused,
+within thirty seconds at most.
+
+**To make a key lapse on a date:** add `"expires": "2027-01-01"` to their entry.
+
+Once the admin panel exists, it edits this file for you through the relay with your
+admin key, and you'll never open it by hand.
+
+## 6. Point the dashboards at the relay
 
 In `dashboard-data.js` at the repository root, set:
 
@@ -86,10 +111,10 @@ var RELAY_URL = 'https://abc123xyz.lambda-url.us-east-1.on.aws';
 No trailing slash. Commit and push. That's the only code change; the URL is not a
 secret, so committing it is fine.
 
-## 6. Check it works
+## 7. Check it works
 
 1. Open any dashboard, make an edit, click Save. You'll be asked for your display
-   name and passcode — exactly as written in `FACILITATOR_KEYS`.
+   name and passcode — exactly as in `facilitators.json`.
 2. The button should read "Saved". The repository gets a commit
    `Update MCD dashboard data (saved by Jane Facilitator)` with Jane as the author.
 3. Reload in a private window: the edit is there, because everyone reads the
@@ -100,18 +125,23 @@ secret, so committing it is fine.
 
 ## What each person can do
 
-| | Read dashboards | Save | See a GitHub token |
-|---|---|---|---|
-| Anyone with the URL | yes | no | no |
-| Facilitator with a key | yes | yes, as themselves | no |
-| You (repo owner) | yes | yes | only you, only in AWS |
+| | Read dashboards | Save | Manage facilitators | See a GitHub token |
+|---|---|---|---|---|
+| Anyone with the URL | yes | no | no | no |
+| Facilitator with a key | yes | yes, as themselves | no | no |
+| Admin (you) | yes | yes | yes, in GitHub or the panel | no |
+| AWS account owner (IT) | yes | no | no | only them, only in AWS |
 
 ## If something goes wrong
 
 The Save button explains failures in plain words. The ones that mean *you* need to
 act (rather than the facilitator):
 
-- "its token was rejected" — `GITHUB_TOKEN` expired or was revoked. Replace it.
+- "its token was rejected" — `GITHUB_TOKEN` expired or was revoked. IT replaces it.
+- "facilitators.json could not be read" — the file is missing or not valid JSON.
+  Check it on GitHub; a stray comma is the usual cause.
+- "Your facilitator key has expired" — that person's entry has a past `expires`.
+  Remove the date or regenerate.
 - "the site owner still needs to set the relay address" — `RELAY_URL` is empty in
   `dashboard-data.js`. Step 5.
 - Browser console shows a CORS error — CORS got turned on at the function URL.

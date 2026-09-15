@@ -24,7 +24,8 @@ edits are committed to `data/<id>.json` through the GitHub contents API. See
 | `mcd-dashboard.html`, `lbds-dashboard.html`, `ccs-dashboard.html`, `tpa-dashboard.html` | The four live, real workgroup dashboards |
 | `calendar.html` | Meeting calendar with a workgroup filter dropdown |
 | `dashboard-data.js` | Shared git-backed storage used by every dashboard: reads the committed data file, sends saves to the relay, holds the conflict lock, sanitises shared HTML. Read its header comment before touching persistence. |
-| `_dev/aws/index.mjs`, `_dev/aws/SETUP.md` | The save relay (Lambda) and how to stand it up. |
+| `facilitators.json` | Who can save: one admin, N facilitators, as name + SHA-256 of a generated passcode. Public; hashes only. Edited by the admin on GitHub or, later, by the admin panel. |
+| `_dev/aws/index.mjs`, `_dev/aws/SETUP.md`, `_dev/aws/key-helper.html` | The save relay (Lambda), how to stand it up, and the offline passcode/hash generator. |
 | `data/<id>.json` | One committed data file per dashboard, created by the first save. Absent until then; a missing file means "use the built-in defaults". |
 | `_dev/dashboard-template.html` | Starting point for building a **new** dashboard — see below |
 | `_dev/validate_nesting.py` | HTML nesting validator used before every deploy |
@@ -105,11 +106,21 @@ comments, and it's the same tradeoff already live on all four real dashboards
     shipped in a first draft and was caught in review. If someone else
     committed since load, GitHub answers 409 and the user is told to reload.
   - **Writes go through a relay** (an AWS Lambda; source and setup in
-    `_dev/aws/`). It holds the one GitHub token. Facilitators identify with a
+    `_dev/aws/`). It holds the one GitHub token. People identify with a
     personal key (`Display Name:passcode`, in localStorage as
     `mismo-hub-facilitator-key`) and never see a token. The relay forwards the
     page's SHA untouched; it must never fetch a fresh one. `RELAY_URL` at the
     top of `dashboard-data.js` is the function URL — not a secret, committed.
+  - **Keys are managed in `facilitators.json` at the repo root**, not on the
+    Lambda, so the admin needs no AWS access. One `admin` and a `facilitators`
+    array, each `{name, hash}` with SHA-256 of a *generated* passcode (the file
+    is public; chosen passcodes would be crackable). Optional `expires`. The
+    relay reads it per request (30 s cache, bypassed on admin writes). Admin
+    routes `GET/PUT /facilitators` are admin-key only and always preserve the
+    admin entry, so the admin cannot lock themselves out through the relay.
+    `_dev/aws/key-helper.html` mints passcodes and hashes offline;
+    `MismoStore.facilitators` exposes the same for the future admin panel. The
+    id `facilitators` is reserved and refused on `/data/`.
   - **Why a relay and not per-person tokens:** `PWCodingLLC` is a personal
     account, and fine-grained tokens can only target repos you own or an org
     you belong to. A collaborator on a personal repo cannot create one. The

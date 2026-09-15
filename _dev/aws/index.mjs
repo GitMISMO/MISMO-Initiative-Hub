@@ -1,42 +1,58 @@
 /* MISMO Initiative Hub — save relay
  *
- * One Lambda, one job: accept a dashboard save from a facilitator who has a valid key,
- * and commit it to the repository with the single GitHub token that lives here and
- * nowhere else. Facilitators never see or hold a GitHub token. Revoking a facilitator
- * is deleting one line from FACILITATOR_KEYS. Rotating the GitHub token is changing
- * one environment variable.
+ * One Lambda, one job: accept a dashboard save from someone who holds a valid key, and
+ * commit it to the repository with the single GitHub token that lives here and nowhere
+ * else. Nobody but the AWS account holder ever sees that token.
  *
- * ENVIRONMENT VARIABLES (set on the Lambda; the code reads nothing else)
- *   GITHUB_TOKEN       Fine-grained PAT owned by the repository owner. This repo only,
- *                      Contents: Read and write. Nothing else.
- *   GITHUB_REPO        e.g. PWCodingLLC/MISMO-Initiative-Hub
- *   GITHUB_BRANCH      e.g. main
- *   ALLOWED_ORIGIN     e.g. https://pwcodingllc.github.io   (exactly, no trailing slash)
- *   FACILITATOR_KEYS   One facilitator per line, "Display Name=passcode". Example:
- *                          Jane Facilitator=k7Qm-2vXp-9Lrt
- *                          Sam Facilitator=b3Wn-8Ycd-4Hjs
- *                      The display name becomes the git author of that person's saves.
+ * WHO CAN DO WHAT
+ * Keys are managed in the repository, not here. The file facilitators.json at the repo
+ * root holds one admin and any number of facilitators, each as a display name plus the
+ * SHA-256 hash of a generated passcode. This function reads that file from GitHub on
+ * each request (cached briefly), so adding or removing a person is a commit — made in
+ * the GitHub web UI, or by the admin panel through this relay — and needs no AWS access.
  *
- * ROUTES (all under the function URL)
- *   GET  /data/{id}    Fresh read of data/{id}.json with its blob SHA. Requires a key.
- *   PUT  /data/{id}    Commit a new version. Body: {content, sha}. Requires a key.
- *                      The sha is the one the page READ; GitHub rejects the write with
- *                      409 if anyone committed since, and that 409 is passed straight
- *                      through. This function must never fetch a fresh SHA on the
- *                      caller's behalf — doing so defeats the lock.
- *   OPTIONS *          CORS preflight. Handled here, so leave CORS DISABLED on the
- *                      function URL itself; enabling both sends duplicate headers and
- *                      the browser refuses the response.
+ *   facilitator   save any dashboard, as themselves
+ *   admin         everything a facilitator can do, plus read and write facilitators.json
  *
- * The key travels in the X-Facilitator-Key header as "Display Name:passcode".
+ * The file is public (the repo is), which is why it holds hashes and why passcodes must
+ * be generated, never chosen. _dev/aws/key-helper.html generates them.
  *
- * No AWS services are called and no data is stored, so the execution role needs
- * nothing beyond the default logging permissions.
+ * ENVIRONMENT VARIABLES (set once, by whoever owns the AWS account)
+ *   GITHUB_TOKEN     Fine-grained PAT owned by the repository's owner. This repo only,
+ *                    Contents: Read and write. The only secret in the system.
+ *   GITHUB_REPO      e.g. YourOrg/MISMO-Initiative-Hub
+ *   GITHUB_BRANCH    e.g. main
+ *   ALLOWED_ORIGIN   e.g. https://yourorg.github.io   (exactly, no trailing slash)
+ *
+ * ROUTES (all under the function URL; key in header X-Facilitator-Key as "Name:passcode")
+ *   GET  /data/{id}       Fresh read of data/{id}.json with its blob SHA.   facilitator+
+ *   PUT  /data/{id}       Commit a new version. Body: {content, sha}.       facilitator+
+ *   GET  /facilitators    The list, without hashes, plus the file's SHA.    admin
+ *   PUT  /facilitators    Replace the list. Body: {facilitators, sha}.      admin
+ *                         The admin entry is preserved as-is; it cannot be changed
+ *                         through this route, so the admin can't lock themselves out.
+ *                         To rotate the admin key, edit facilitators.json directly.
+ *   OPTIONS *             CORS preflight. Handled here — leave CORS DISABLED on the
+ *                         function URL, or the browser gets duplicate headers.
+ *
+ * THE LOCK
+ * Every PUT carries the SHA of the version the caller READ. It is forwarded to GitHub
+ * untouched; GitHub refuses with 409 if anyone committed since, and that comes straight
+ * back. This function must never fetch a fresh SHA on the caller's behalf.
+ *
+ * No AWS services are called and no data is stored here.
  */
 
+import { createHash, timingSafeEqual } from 'node:crypto';
+
 const GITHUB_API = 'https://api.github.com';
-const MAX_BODY_BYTES = 1_000_000;                 // dashboards are ~10 KB; 1 MB is generous
+const FACILITATORS_PATH = 'facilitators.json';
+const FACILITATORS_CACHE_MS = 30_000;              // revocation lands within half a minute
+const MAX_BODY_BYTES = 1_000_000;                  // dashboards are ~10 KB; 1 MB is generous
 const DASHBOARD_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;   // data/<id>.json — no dots, no slashes
+const RESERVED_IDS = new Set(['facilitators']);    // never a dashboard, never writable via /data/
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+const BLOB_SHA = /^[0-9a-f]{40}$/;
 
 function env(name) {
   const v = process.env[name];
@@ -44,60 +60,7 @@ function env(name) {
   return v;
 }
 
-/* "Name=passcode" lines → Map(passcode → name). Parsed per invocation so an env change
- * takes effect on the next call without a redeploy. Blank lines and #comments ignored. */
-function loadFacilitators() {
-  const map = new Map();
-  for (const raw of env('FACILITATOR_KEYS').split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eq = line.indexOf('=');
-    if (eq <= 0) continue;
-    const name = line.slice(0, eq).trim();
-    const pass = line.slice(eq + 1).trim();
-    if (name && pass) map.set(pass, name);
-  }
-  return map;
-}
-
-/* Constant-time comparison so a passcode can't be guessed one character at a time by
- * timing the response. Overkill at this scale, but it costs nothing. */
-function safeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-function authenticate(headers) {
-  const raw = headers['x-facilitator-key'] || '';
-  const colon = raw.indexOf(':');
-  if (colon <= 0) return null;
-  const name = raw.slice(0, colon).trim();
-  const pass = raw.slice(colon + 1).trim();
-  for (const [storedPass, storedName] of loadFacilitators()) {
-    if (safeEqual(pass, storedPass) && storedName === name) return storedName;
-  }
-  return null;
-}
-
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': env('ALLOWED_ORIGIN'),
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Facilitator-Key',
-    'Access-Control-Max-Age': '600',
-    'Vary': 'Origin'
-  };
-}
-
-function respond(status, body) {
-  return {
-    statusCode: status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-    body: JSON.stringify(body)
-  };
-}
+/* ---------- GitHub ---------- */
 
 async function github(method, path, body) {
   const res = await fetch(GITHUB_API + path, {
@@ -115,80 +78,237 @@ async function github(method, path, body) {
   return { status: res.status, json };
 }
 
-function decodeBase64Utf8(b64) {
-  return Buffer.from(b64.replace(/\n/g, ''), 'base64').toString('utf8');
+const decodeBase64Utf8 = (b64) => Buffer.from(b64.replace(/\n/g, ''), 'base64').toString('utf8');
+const encodeBase64Utf8 = (obj) => Buffer.from(JSON.stringify(obj, null, 2) + '\n', 'utf8').toString('base64');
+
+async function readFile(repo, branch, path) {
+  const { status, json } = await github('GET', `/repos/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`);
+  if (status === 404) return { status, data: null, sha: null };
+  if (status !== 200) return { status, data: null, sha: null, message: json?.message };
+  let data;
+  try { data = JSON.parse(decodeBase64Utf8(json.content)); } catch { return { status: 500, data: null, sha: null, corrupt: true }; }
+  return { status, data, sha: json.sha };
 }
+
+/* ---------- facilitators ---------- */
+
+let facilitatorsCache = { at: 0, value: null };
+
+/* Reads facilitators.json from GitHub. Cached across invocations of a warm container for
+ * FACILITATORS_CACHE_MS so a burst of saves doesn't burst the GitHub API; bypassed for
+ * admin reads and after admin writes so the panel always sees the truth. */
+async function loadFacilitators(repo, branch, { fresh = false } = {}) {
+  const now = Date.now();
+  if (!fresh && facilitatorsCache.value && now - facilitatorsCache.at < FACILITATORS_CACHE_MS) return facilitatorsCache.value;
+  const file = await readFile(repo, branch, FACILITATORS_PATH);
+  const value = {
+    sha: file.sha,
+    admin: file.data?.admin || null,
+    facilitators: Array.isArray(file.data?.facilitators) ? file.data.facilitators : [],
+    missing: file.status === 404,
+    error: file.status !== 200 && file.status !== 404 ? (file.corrupt ? 'CORRUPT' : `HTTP ${file.status}`) : null
+  };
+  facilitatorsCache = { at: now, value };
+  return value;
+}
+
+const sha256hex = (s) => createHash('sha256').update(s, 'utf8').digest('hex');
+
+/* Constant-time comparison of two hex digests, so a passcode can't be guessed one
+ * character at a time by timing the response. */
+function hashesMatch(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+}
+
+function isExpired(entry) {
+  if (!entry.expires) return false;
+  const t = Date.parse(entry.expires);
+  return Number.isFinite(t) && t <= Date.now();
+}
+
+/* Returns { name, role } or { error } */
+async function authenticate(headers, repo, branch) {
+  const raw = headers['x-facilitator-key'] || '';
+  const colon = raw.indexOf(':');
+  if (colon <= 0) return { error: 'KEY_BAD' };
+  const name = raw.slice(0, colon).trim();
+  const pass = raw.slice(colon + 1).trim();
+  if (!name || !pass) return { error: 'KEY_BAD' };
+
+  const list = await loadFacilitators(repo, branch);
+  if (list.error) return { error: 'FACILITATORS_UNREADABLE' };
+  const digest = sha256hex(pass);
+
+  const candidates = [];
+  if (list.admin) candidates.push({ ...list.admin, role: 'admin' });
+  for (const f of list.facilitators) candidates.push({ ...f, role: 'facilitator' });
+
+  // Check every entry even after a match, so the response time doesn't reveal position.
+  let found = null;
+  for (const c of candidates) {
+    const ok = c.name === name && hashesMatch(c.hash, digest);
+    if (ok && !found) found = c;
+  }
+  if (!found) return { error: 'KEY_BAD' };
+  if (isExpired(found)) return { error: 'KEY_EXPIRED' };
+  return { name: found.name, role: found.role };
+}
+
+/* ---------- HTTP ---------- */
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': env('ALLOWED_ORIGIN'),
+    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Facilitator-Key',
+    'Access-Control-Max-Age': '600',
+    'Vary': 'Origin'
+  };
+}
+
+const respond = (status, body) => ({
+  statusCode: status,
+  headers: { 'Content-Type': 'application/json', ...corsHeaders() },
+  body: JSON.stringify(body)
+});
+
+function parseBody(event) {
+  const text = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : (event.body || '');
+  if (Buffer.byteLength(text) > MAX_BODY_BYTES) return { error: respond(413, { error: 'TOO_LARGE' }) };
+  try { return { body: JSON.parse(text) }; } catch { return { error: respond(400, { error: 'BAD_JSON' }) }; }
+}
+
+/* Maps a GitHub write result to our response. */
+function writeOutcome(status, json, hadSha) {
+  // 409: the sha is stale. 422 with no sha: the file was created since the caller read a
+  // 404. Both are the lock working; both go back as a conflict.
+  if (status === 409 || (status === 422 && !hadSha)) return respond(409, { error: 'CONFLICT' });
+  if (status === 422) return respond(422, { error: 'REJECTED', message: json?.message });
+  if (status === 401 || status === 403) return respond(502, { error: 'TOKEN', message: "The relay's GitHub token was rejected. The site owner needs to check it." });
+  if (status !== 200 && status !== 201) return respond(502, { error: 'GITHUB', status, message: json?.message });
+  return null;
+}
+
+const authorFor = (name) => ({ name, email: `${name.replace(/\s+/g, '.').toLowerCase()}@facilitators.mismo-hub.invalid` });
 
 export async function handler(event) {
   const method = (event.requestContext?.http?.method || 'GET').toUpperCase();
   const rawPath = event.rawPath || '/';
   const headers = Object.fromEntries(Object.entries(event.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
 
-  if (method === 'OPTIONS') {
-    return { statusCode: 204, headers: corsHeaders(), body: '' };
-  }
+  if (method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders(), body: '' };
 
-  // Only the request origin we expect. A browser on any other site gets nothing useful
-  // even before authentication.
   const origin = headers['origin'];
   if (origin && origin !== env('ALLOWED_ORIGIN')) {
     return respond(403, { error: 'ORIGIN', message: 'This relay only serves the dashboard site.' });
   }
 
-  const match = rawPath.match(/^\/data\/([^/]+)$/);
-  if (!match) return respond(404, { error: 'NOT_FOUND' });
-  const id = match[1];
-  if (!DASHBOARD_ID.test(id)) return respond(400, { error: 'BAD_ID' });
-  const filePath = `data/${id}.json`;
-
-  const who = authenticate(headers);
-  if (!who) return respond(401, { error: 'KEY_BAD', message: 'That facilitator key was not recognised.' });
-
   const repo = env('GITHUB_REPO');
   const branch = env('GITHUB_BRANCH');
 
+  const dataMatch = rawPath.match(/^\/data\/([^/]+)$/);
+  const isFacilitators = rawPath === '/facilitators';
+  if (!dataMatch && !isFacilitators) return respond(404, { error: 'NOT_FOUND' });
+
+  const who = await authenticate(headers, repo, branch);
+  if (who.error === 'FACILITATORS_UNREADABLE') return respond(502, { error: 'FACILITATORS_UNREADABLE', message: 'facilitators.json could not be read. The site owner needs to check it.' });
+  if (who.error === 'KEY_EXPIRED') return respond(401, { error: 'KEY_EXPIRED', message: 'That facilitator key has expired.' });
+  if (who.error) return respond(401, { error: 'KEY_BAD', message: 'That facilitator key was not recognised.' });
+
+  /* ----- dashboards: facilitator or admin ----- */
+  if (dataMatch) {
+    const id = dataMatch[1];
+    if (!DASHBOARD_ID.test(id) || RESERVED_IDS.has(id)) return respond(400, { error: 'BAD_ID' });
+    const filePath = `data/${id}.json`;
+
+    if (method === 'GET') {
+      const file = await readFile(repo, branch, filePath);
+      if (file.status === 404) return respond(200, { data: null, sha: null });
+      if (file.corrupt) return respond(502, { error: 'CORRUPT', message: 'The committed data file is not valid JSON.' });
+      if (file.status !== 200) return respond(502, { error: 'GITHUB', status: file.status, message: file.message });
+      return respond(200, { data: file.data, sha: file.sha });
+    }
+
+    if (method === 'PUT') {
+      const { body, error } = parseBody(event);
+      if (error) return error;
+      if (!body || typeof body.content !== 'object' || body.content === null) return respond(400, { error: 'BAD_CONTENT' });
+      if (body.sha != null && !BLOB_SHA.test(body.sha)) return respond(400, { error: 'BAD_SHA' });
+
+      const payload = { ...body.content, savedBy: who.name, savedAt: new Date().toISOString() };
+      const { status, json } = await github('PUT', `/repos/${repo}/contents/${filePath}`, {
+        message: `Update ${id.toUpperCase()} dashboard data (saved by ${who.name})`,
+        content: encodeBase64Utf8(payload),
+        branch,
+        sha: body.sha || undefined,
+        // The person is the author; the token owner is the committer. History shows who.
+        author: authorFor(who.name)
+      });
+      const bad = writeOutcome(status, json, !!body.sha);
+      if (bad) return bad;
+      return respond(200, { sha: json.content?.sha, savedBy: who.name });
+    }
+
+    return respond(405, { error: 'METHOD' });
+  }
+
+  /* ----- facilitators: admin only ----- */
+  if (who.role !== 'admin') return respond(403, { error: 'ADMIN_ONLY', message: 'Only the admin key can manage facilitators.' });
+
   if (method === 'GET') {
-    const { status, json } = await github('GET', `/repos/${repo}/contents/${filePath}?ref=${encodeURIComponent(branch)}`);
-    if (status === 404) return respond(200, { data: null, sha: null });
-    if (status !== 200) return respond(502, { error: 'GITHUB', status, message: json?.message });
-    let data;
-    try { data = JSON.parse(decodeBase64Utf8(json.content)); }
-    catch { return respond(502, { error: 'CORRUPT', message: 'The committed data file is not valid JSON.' }); }
-    return respond(200, { data, sha: json.sha });
+    const list = await loadFacilitators(repo, branch, { fresh: true });
+    if (list.error) return respond(502, { error: 'FACILITATORS_UNREADABLE' });
+    // Hashes are public anyway, but the panel has no use for them; names and expiries only.
+    return respond(200, {
+      sha: list.sha,
+      admin: list.admin ? { name: list.admin.name } : null,
+      facilitators: list.facilitators.map(f => ({ name: f.name, expires: f.expires || null }))
+    });
   }
 
   if (method === 'PUT') {
-    const bodyText = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : (event.body || '');
-    if (Buffer.byteLength(bodyText) > MAX_BODY_BYTES) return respond(413, { error: 'TOO_LARGE' });
+    const { body, error } = parseBody(event);
+    if (error) return error;
+    if (!body || !Array.isArray(body.facilitators)) return respond(400, { error: 'BAD_CONTENT' });
+    if (body.sha != null && !BLOB_SHA.test(body.sha)) return respond(400, { error: 'BAD_SHA' });
 
-    let body;
-    try { body = JSON.parse(bodyText); } catch { return respond(400, { error: 'BAD_JSON' }); }
-    if (!body || typeof body.content !== 'object' || body.content === null) return respond(400, { error: 'BAD_CONTENT' });
-    if (body.sha !== null && body.sha !== undefined && !/^[0-9a-f]{40}$/.test(body.sha)) return respond(400, { error: 'BAD_SHA' });
+    // Validate every entry before touching the file. A single bad entry rejects the whole
+    // write rather than silently dropping it.
+    const seen = new Set();
+    const clean = [];
+    for (const f of body.facilitators) {
+      const name = typeof f?.name === 'string' ? f.name.trim() : '';
+      const hash = typeof f?.hash === 'string' ? f.hash.trim().toLowerCase() : '';
+      if (!name || name.length > 80) return respond(400, { error: 'BAD_NAME', name });
+      if (!SHA256_HEX.test(hash)) return respond(400, { error: 'BAD_HASH', name });
+      if (seen.has(name)) return respond(400, { error: 'DUPLICATE_NAME', name });
+      seen.add(name);
+      const entry = { name, hash };
+      if (f.expires) {
+        if (!Number.isFinite(Date.parse(f.expires))) return respond(400, { error: 'BAD_EXPIRES', name });
+        entry.expires = f.expires;
+      }
+      clean.push(entry);
+    }
 
-    // Stamp who saved on the record itself as well as on the commit, so the JSON is
-    // self-describing when read outside git.
-    const payload = { ...body.content, savedBy: who, savedAt: new Date().toISOString() };
-    const content = Buffer.from(JSON.stringify(payload, null, 2) + '\n', 'utf8').toString('base64');
+    // The admin entry is carried over from the current file, never taken from the body.
+    const current = await loadFacilitators(repo, branch, { fresh: true });
+    if (current.error) return respond(502, { error: 'FACILITATORS_UNREADABLE' });
+    if (!current.admin) return respond(500, { error: 'NO_ADMIN', message: 'facilitators.json has no admin entry; fix it directly in the repository.' });
+    if (clean.some(f => f.name === current.admin.name)) return respond(400, { error: 'ADMIN_NAME_RESERVED', name: current.admin.name });
 
-    const { status, json } = await github('PUT', `/repos/${repo}/contents/${filePath}`, {
-      message: `Update ${id.toUpperCase()} dashboard data (saved by ${who})`,
-      content,
+    const { status, json } = await github('PUT', `/repos/${repo}/contents/${FACILITATORS_PATH}`, {
+      message: `Update facilitators (by ${who.name})`,
+      content: encodeBase64Utf8({ admin: current.admin, facilitators: clean }),
       branch,
       sha: body.sha || undefined,
-      // The facilitator is the author; the token owner is the committer. Git history then
-      // shows who made the change, which the per-person-token design used to provide.
-      author: { name: who, email: `${who.replace(/\s+/g, '.').toLowerCase()}@facilitators.mismo-hub.invalid` }
+      author: authorFor(who.name)
     });
-
-    // 409: the sha is stale. 422 with no sha: the file was created since the page read
-    // a 404. Both are the lock working; both go back to the browser as a conflict.
-    if (status === 409 || (status === 422 && !body.sha)) return respond(409, { error: 'CONFLICT' });
-    if (status === 422) return respond(422, { error: 'REJECTED', message: json?.message });
-    if (status === 401 || status === 403) return respond(502, { error: 'TOKEN', message: 'The relay\'s GitHub token was rejected. The site owner needs to check it.' });
-    if (status !== 200 && status !== 201) return respond(502, { error: 'GITHUB', status, message: json?.message });
-
-    return respond(200, { sha: json.content?.sha, savedBy: who });
+    const bad = writeOutcome(status, json, !!body.sha);
+    if (bad) return bad;
+    facilitatorsCache = { at: 0, value: null };   // next auth must see the new list
+    return respond(200, { sha: json.content?.sha });
   }
 
   return respond(405, { error: 'METHOD' });
