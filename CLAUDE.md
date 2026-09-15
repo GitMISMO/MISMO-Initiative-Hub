@@ -12,8 +12,11 @@ build step, no framework, no server). The repository itself is the data store:
 edits are committed to `data/<id>.json` through the GitHub contents API. See
 **Saving** below.
 
-- **Live site:** https://pwcodingllc.github.io/MISMO-Initiative-Hub/
-- **Repo:** https://github.com/PWCodingLLC/MISMO-Initiative-Hub
+- **Live site:** https://gitmismo.github.io/MISMO-Initiative-Hub/
+- **Repo:** https://github.com/GitMISMO/MISMO-Initiative-Hub
+- Moved from the personal `PWCodingLLC` account to the `GitMISMO` organization in
+  Sept 2026. Full history came across intact. Any link to the old
+  `pwcodingllc.github.io` address is dead — GitHub redirects the repo but not Pages.
 - **Hosting:** GitHub Pages, served directly from the `main` branch
 
 ## File structure
@@ -128,11 +131,13 @@ comments, and it's the same tradeoff already live on all four real dashboards
     `key-helper.html` mints passcodes and hashes offline;
     `MismoStore.facilitators` exposes the same for the future admin panel. The
     id `facilitators` is reserved and refused on `/data/`.
-  - **Why a relay and not per-person tokens:** `PWCodingLLC` is a personal
-    account, and fine-grained tokens can only target repos you own or an org
-    you belong to. A collaborator on a personal repo cannot create one. The
-    per-person design shipped briefly and could only ever have worked for the
-    owner.
+  - **Why a relay and not per-person tokens:** the repo originally lived on a
+    personal account, where fine-grained tokens can only target repos you own,
+    so a collaborator could not create one at all. It is now org-owned, which
+    makes per-person tokens technically possible again — but the relay is still
+    the right design: it keeps the GitHub token off every facilitator's machine
+    and makes revocation a one-line edit rather than an org-admin task. Do not
+    revert to per-person tokens.
   - Editors (key present) read via the relay: always fresh, and it returns the
     SHA. Viewers read the deployed file from the same origin (no key, no relay
     call) and the blob SHA is computed client-side from the bytes.
@@ -264,7 +269,7 @@ reasoning from commit messages alone, since context resets between sessions.
 
 ## GitHub access
 
-The repo is public: https://github.com/PWCodingLLC/MISMO-Initiative-Hub
+The repo is public: https://github.com/GitMISMO/MISMO-Initiative-Hub
 
 For push access, authenticate properly rather than reusing a hardcoded
 personal access token in a plaintext file:

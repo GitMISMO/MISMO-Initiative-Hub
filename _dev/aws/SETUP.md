@@ -16,7 +16,8 @@ Two jobs, two owners:
 
 GitHub → Settings → Developer settings → Personal access tokens → Fine-grained.
 
-- Resource owner: **PWCodingLLC**
+- Resource owner: **GitMISMO** (the organization, not a personal account — this is
+  the step most often missed; a token owned by an individual cannot see this repo)
 - Repository access: **Only select repositories** → `MISMO-Initiative-Hub`
 - Permissions → Repository → **Contents: Read and write**. Nothing else.
 - Expiration: your call. When it expires, saving stops with a clear message
@@ -46,9 +47,9 @@ Configuration → Environment variables → Edit. Add these four:
 | Key | Value |
 |---|---|
 | `GITHUB_TOKEN` | the token from step 1 |
-| `GITHUB_REPO` | `PWCodingLLC/MISMO-Initiative-Hub` (or the org's path after the move) |
+| `GITHUB_REPO` | `GitMISMO/MISMO-Initiative-Hub` |
 | `GITHUB_BRANCH` | `main` |
-| `ALLOWED_ORIGIN` | `https://pwcodingllc.github.io` — exactly, no trailing slash |
+| `ALLOWED_ORIGIN` | `https://gitmismo.github.io` — exactly, no trailing slash |
 
 That's everything AWS needs. Facilitators are **not** configured here — see step 5.
 
@@ -78,7 +79,7 @@ and any number of **facilitators**, each as a display name and the SHA-256 hash 
 generated passcode. The file is public, which is why it holds hashes, and why passcodes
 must be generated rather than chosen.
 
-Open **https://pwcodingllc.github.io/MISMO-Initiative-Hub/key-helper.html** (the
+Open **https://gitmismo.github.io/MISMO-Initiative-Hub/key-helper.html** (the
 published site; it makes no network requests and nothing you generate leaves the
 page). Do not use GitHub's "raw" view — that shows the source as text rather than
 running it. For each person:
