@@ -18,7 +18,7 @@ globalThis.fetch = async (url, opts) => {
   if (opts.method==='PUT') return {status:putStatus, json:async()=>({content:{sha:'n'.repeat(40)}})};
   return {status:404, json:async()=>({})};
 };
-const { handler } = await import('./index.mjs');
+const { handler, __resetProjectsCache: projectsCacheBust } = await import('./index.mjs');
 const ev = (method, path, key, body) => ({ rawPath:'/hub'+path, requestContext:{http:{method}}, headers:{origin:'https://org.github.io', ...(key?{'x-facilitator-key':key}:{})}, body: body?JSON.stringify(body):undefined });
 const ok = (n,c)=>console.log((c?'PASS ':'FAIL ')+n);
 const J = r => JSON.parse(r.body);
@@ -224,3 +224,74 @@ ok('path traversal in a commit refused', r.statusCode===400 && J(r).error==='BAD
 
 r = await handler(raw('OPTIONS','/glossary/commit',null,null,'https://glossary.example'));
 ok('preflight echoes the project origin', r.statusCode===204 && r.headers['Access-Control-Allow-Origin']==='https://glossary.example');
+
+/* ---------- the project list read from a repository, not an env var ----------
+   Flipping PROJECTS_REPO on switches the source. These run last so the earlier
+   tests keep exercising the environment-variable path. */
+
+let projectsFile = {
+  hub:      { repo:'Org/Repo',     branch:'main', origin:'https://org.github.io' },
+  glossary: { repo:'Org/Glossary', branch:'main', origin:'https://glossary.example' },
+  press:    { repo:'Org/Press',    branch:'main', origin:'https://org.github.io' }
+};
+let projectsStatus = 200;
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url, opts) => {
+  if (opts.method === 'GET' && url.includes('/projects.json')) {
+    calls.push({ url, method:'GET', body:null });
+    if (projectsStatus !== 200) return { status: projectsStatus, json: async()=>({}) };
+    return { status:200, json: async()=>({ sha:'p'.repeat(40), content:b64(projectsFile) }) };
+  }
+  return realFetch(url, opts);
+};
+process.env.PROJECTS_REPO = 'Org/SiteConfig';
+
+const evp = (proj, method, path, key, origin) => ({
+  rawPath:'/'+proj+path, requestContext:{http:{method}},
+  headers:{ origin: origin||'https://org.github.io', ...(key?{'x-facilitator-key':key}:{}) }
+});
+
+r = await handler(evp('hub','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
+ok('project resolved from projects.json in the repo', r.statusCode===200);
+ok('projects.json was actually fetched', calls.some(c=>c.url.includes('/projects.json')));
+
+// A tool added by commit, with no AWS change at all, is reachable.
+r = await handler(evp('press','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
+ok('a project present ONLY in the committed file resolves', r.statusCode!==404 || J(r).error!=='UNKNOWN_PROJECT');
+
+// A rogue or mistaken entry naming another owner is refused at the door.
+projectsFile = { ...projectsFile, evil:{ repo:'Someone-Else/Repo', branch:'main', origin:'https://org.github.io' } };
+projectsCacheBust();
+r = await handler(evp('evil','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
+ok('entry naming a different owner -> UNKNOWN_PROJECT', r.statusCode===404 && J(r).error==='UNKNOWN_PROJECT');
+ok('no request was made to the foreign repo', !calls.some(c=>c.url.includes('Someone-Else')));
+
+// Malformed entries are refused rather than half-used.
+projectsFile = { ...projectsFile, broken:{ repo:'Org/Broken' } };
+projectsCacheBust();
+r = await handler(evp('broken','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
+ok('entry missing origin -> UNKNOWN_PROJECT', r.statusCode===404 && J(r).error==='UNKNOWN_PROJECT');
+
+// A warm container rides out a brief GitHub failure using the last good list.
+projectsStatus = 500;
+r = await handler(evp('hub','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
+ok('warm cache survives a GitHub blip', r.statusCode===200);
+
+// A cold container has nothing to fall back on, and says so instead of guessing.
+projectsCacheBust();
+r = await handler(evp('hub','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
+ok('cold start + unreadable list -> 503, not a wrong-repo write', r.statusCode===503 && J(r).error==='CONFIG_UNAVAILABLE');
+const writesDuringOutage = calls.filter(c=>c.method==='PUT'||c.method==='POST').length;
+r = await handler({ rawPath:'/hub/commit', requestContext:{http:{method:'POST'}},
+  headers:{origin:'https://org.github.io','x-facilitator-key':'Jane Facilitator:k7Qm-2vXp'},
+  body: JSON.stringify({files:[{path:'a.json',content:'{}'}], message:'x'}) });
+ok('no write attempted while the list is unreadable', r.statusCode===503 &&
+   calls.filter(c=>c.method==='PUT'||c.method==='POST').length===writesDuringOutage);
+
+// Turning the repo source off falls back to the environment variable cleanly.
+projectsStatus = 200;
+delete process.env.PROJECTS_REPO;
+r = await handler(evp('hub','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
+ok('PROJECTS_REPO unset -> environment variable is used again', r.statusCode===200);
+r = await handler(evp('press','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
+ok('project only in the file is NOT visible in env mode', r.statusCode===404 && J(r).error==='UNKNOWN_PROJECT');

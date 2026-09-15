@@ -60,21 +60,46 @@ repository, then **Deploy**.
 
 ### 1.3 Environment variables
 
-Configuration → Environment variables. Two of them:
+Configuration → Environment variables:
 
 | Key | Value |
 |---|---|
 | `GITHUB_TOKEN` | the token from 1.1 |
-| `PROJECTS` | the JSON below, on one line |
+| `PROJECTS_REPO` | `GitMISMO/GitMISMO.github.io` |
+| `PROJECTS_BRANCH` | `main` *(optional, defaults to `main`)* |
+| `PROJECTS_PATH` | `projects.json` *(optional, defaults to `projects.json`)* |
+
+The list of projects lives in **`projects.json` in that repository**, not in AWS:
 
 ```json
-{"hub":{"repo":"GitMISMO/MISMO-Initiative-Hub","branch":"main","origin":"https://gitmismo.github.io"},
- "glossary":{"repo":"GitMISMO/mismo-business-glossary","branch":"main","origin":"https://gitmismo.github.io"}}
+{
+  "hub":      {"repo":"GitMISMO/MISMO-Initiative-Hub",   "branch":"main", "origin":"https://tools.mismo.org"},
+  "glossary": {"repo":"GitMISMO/mismo-business-glossary","branch":"main", "origin":"https://tools.mismo.org"}
+}
 ```
 
-`origin` is the exact site address with no trailing slash. Both sites are on
-`gitmismo.github.io` today; when they move to their AWS domains, change these two values
-and nothing else.
+Adding a tool is then a commit to that file — reviewable, attributable, revertible, and
+possible without anyone having AWS access. A new entry is live within a minute.
+
+`origin` is the exact site address with no trailing slash, and it is the same for every
+tool now that they all share a host.
+
+**This does not widen who can write where.** The relay's token only reaches repositories
+it was explicitly granted, and that grant is in GitHub under org-admin control. An entry
+naming a repo the token cannot reach is refused; an entry naming a different owner is
+refused before any request is made. The file decides which repos the relay *knows about*,
+the token decides which it can *touch*, and the token is the one that matters.
+
+Protect the config repo accordingly: give write access to a small named group, and turn on
+a branch ruleset requiring a pull request before merging to `main`.
+
+### Alternative: keep the list in AWS
+
+If you would rather not have the list in git, leave `PROJECTS_REPO` unset and provide
+`PROJECTS` instead, holding the same JSON on one line. Exactly one source is authoritative:
+if `PROJECTS_REPO` is set, `PROJECTS` is ignored entirely. There is deliberately no
+fallback between them — if the file cannot be read the relay returns `503` and writes
+nothing, rather than using a stale copy that might name a repository since repointed.
 
 To rotate the token later, replace `GITHUB_TOKEN`. Takes effect on the next request.
 
@@ -196,7 +221,10 @@ facilitator:
 - *"facilitators.json could not be read"* — the file is missing or not valid JSON in that
   project's repository. A stray comma is the usual cause.
 - A CORS error in the browser console — CORS got switched on at the function URL (1.4).
-- `UNKNOWN_PROJECT` — the `PROJECT` value in the page does not match a key in `PROJECTS`.
+- `UNKNOWN_PROJECT` — the `PROJECT` value in the page does not match a key in the project
+  list, or its entry is malformed or names a different owner.
+- `CONFIG_UNAVAILABLE` (503) — the project list could not be read and nothing was cached.
+  Nothing was written. It clears itself once GitHub responds again.
 
 CloudWatch Logs under the function shows every invocation if you need more.
 

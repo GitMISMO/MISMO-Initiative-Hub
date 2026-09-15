@@ -58,6 +58,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 const GITHUB_API = 'https://api.github.com';
 const FACILITATORS_PATH = 'facilitators.json';
 const FACILITATORS_CACHE_MS = 30_000;              // revocation lands within half a minute
+const PROJECTS_CACHE_MS = 60_000;                  // a newly added tool is live within a minute
 const MAX_BODY_BYTES = 1_000_000;                  // dashboards are ~10 KB; 1 MB is generous
 const DASHBOARD_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;   // data/<id>.json — no dots, no slashes
 const RESERVED_IDS = new Set(['facilitators', 'stakeholder-types']);   // never dashboards
@@ -165,15 +166,82 @@ function env(name) {
  * the key check must never be able to disagree about which project a request belongs to,
  * or a key for one project could write to the other's repository. Nothing below may take
  * a repo from anywhere else. */
-function projects() {
+/* WHERE THE LIST LIVES. Two modes, and exactly one is authoritative at a time:
+ *
+ *   PROJECTS_REPO set  -> the list is projects.json in that repository. Adding a tool is
+ *                         a commit, reviewable, attributable and revertible, and needs
+ *                         nobody with AWS access.
+ *   PROJECTS_REPO unset -> the list is the PROJECTS environment variable.
+ *
+ * There is deliberately no fallback from the first to the second. If the file cannot be
+ * read we serve 503 rather than quietly using a stale copy from the environment: a stale
+ * copy could still name a repo that has since been repointed, and writing to the wrong
+ * repository is far worse than being briefly unavailable.
+ *
+ * This is NOT a weakening of access control. The relay's token only reaches repositories
+ * it was explicitly granted, and that grant lives in GitHub under org-admin control. A
+ * rogue entry here names a repo the token cannot write, and GitHub refuses it. The file
+ * decides which repos the relay *knows about*; the token decides which it can *touch*. */
+const projectsCache = { at: 0, value: null };
+let lastKnownOrigin = null;   // see corsHeaders
+
+/* Test hook only. Lambda never calls this — a real container simply ages out after
+ * PROJECTS_CACHE_MS. It exists so the suite can simulate a cold start, which is the
+ * only way to exercise the "list unreadable and nothing cached" path. */
+export function __resetProjectsCache() { projectsCache.at = 0; projectsCache.value = null; lastKnownOrigin = null; }
+
+function parseProjects(raw, source) {
   let parsed;
-  try { parsed = JSON.parse(env('PROJECTS')); }
-  catch (e) { throw new Error('PROJECTS is not valid JSON'); }
+  try { parsed = JSON.parse(raw); }
+  catch (e) { throw new Error(`${source} is not valid JSON`); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`${source} must be a JSON object of project keys`);
+  }
   return parsed;
 }
-function projectConfig(key) {
-  const p = projects()[key];
-  if (!p || !p.repo || !p.origin) return null;
+
+async function projects() {
+  const configRepo = process.env.PROJECTS_REPO;
+  if (!configRepo) {
+    const value = parseProjects(env('PROJECTS'), 'PROJECTS');
+    lastKnownOrigin = Object.values(value)[0]?.origin || lastKnownOrigin;
+    return value;
+  }
+
+  const now = Date.now();
+  if (projectsCache.value && now - projectsCache.at < PROJECTS_CACHE_MS) return projectsCache.value;
+
+  const branch = process.env.PROJECTS_BRANCH || 'main';
+  const path = process.env.PROJECTS_PATH || 'projects.json';
+  const file = await readFile(configRepo, branch, path);
+  if (file.status !== 200) {
+    // Serve the last good copy if we have one; a warm container should not start failing
+    // because of one bad minute at GitHub. A cold container has nothing, so it says so.
+    if (projectsCache.value) return projectsCache.value;
+    throw new Error(`CONFIG_UNAVAILABLE: ${path} in ${configRepo} returned ${file.status}`);
+  }
+  const value = parseProjects(JSON.stringify(file.data), `${path} in ${configRepo}`);
+  projectsCache.at = now;
+  projectsCache.value = value;
+  lastKnownOrigin = Object.values(value)[0]?.origin || lastKnownOrigin;
+  return value;
+}
+
+/* Every project must live under the same owner as the config file itself. The token is
+ * the real boundary, but this turns "someone added another org's repo" into a clear
+ * refusal at the door instead of a 404 from GitHub three calls later. */
+function sameOwner(repo, configRepo) {
+  if (!configRepo) return true;
+  return repo.split('/')[0].toLowerCase() === configRepo.split('/')[0].toLowerCase();
+}
+
+async function projectConfig(key) {
+  const all = await projects();
+  const p = all[key];
+  if (!p || typeof p !== 'object') return null;
+  if (typeof p.repo !== 'string' || !/^[^/]+\/[^/]+$/.test(p.repo)) return null;
+  if (typeof p.origin !== 'string' || !p.origin || p.origin.endsWith('/')) return null;
+  if (!sameOwner(p.repo, process.env.PROJECTS_REPO)) return null;
   return { key, repo: p.repo, branch: p.branch || 'main', origin: p.origin };
 }
 
@@ -282,7 +350,12 @@ function corsHeaders(origin) {
   return {
     // Echoes only an origin that a configured project declared. Never '*': these routes
     // are authenticated by a header, so a wildcard would let any site call them.
-    'Access-Control-Allow-Origin': origin || Object.values(projects())[0]?.origin || 'null',
+    // corsHeaders is synchronous and the project list is now an async read, so it uses
+    // the origin remembered from the last successful load rather than looking one up.
+    // Only matters for errors raised before a project is resolved (unknown project, or
+    // the list being unreadable) — without it the browser hides the error body and the
+    // page reports a generic network failure instead of the real reason.
+    'Access-Control-Allow-Origin': origin || lastKnownOrigin || 'null',
     'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Facilitator-Key',
     'Access-Control-Max-Age': '600',
@@ -325,7 +398,17 @@ export async function handler(event) {
 
   // Every path starts with the project key. One lookup decides repo, branch and origin.
   const projMatch = rawPath.match(/^\/([a-z0-9-]+)(\/.*)?$/);
-  const proj = projMatch && projectConfig(projMatch[1]);
+  let proj = null;
+  try {
+    proj = projMatch ? await projectConfig(projMatch[1]) : null;
+  } catch (e) {
+    // The project list could not be read at all. Refusing is the only safe answer: we do
+    // not know which repository this request belongs to, and guessing writes to the wrong
+    // one. 503 says "try again", not "your request was wrong".
+    console.error('project config unavailable:', e.message);
+    if (method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders(null), body: '' };
+    return respond(503, { error: 'CONFIG_UNAVAILABLE', message: 'Saving is briefly unavailable. Nothing was written — try again in a minute.' });
+  }
   const subPath = projMatch ? (projMatch[2] || '/') : '/';
   if (proj) responseOrigin = proj.origin;
 
