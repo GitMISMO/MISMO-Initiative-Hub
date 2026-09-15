@@ -1,0 +1,188 @@
+{
+  "id": "consumer-facing-ai-disclosure-language",
+  "name": "Consumer Facing AI Disclosure Language",
+  "domain": "Artificial Intelligence",
+  "stage": "in-progress",
+  "broughtBy": "Rick Hill, VP of Technology, Mortgage Bankers Association \u2014 August 2026",
+  "dateLogged": "",
+  "summary": "Standardized disclosure templates to help organizations satisfy the growing set of regulatory requirements for consumer-facing AI tools.",
+  "whyRaised": "Regulators are adding disclosure requirements related to consumer-facing AI, and several industry organizations have encouraged MBA to develop standardized templates rather than have each firm draft its own. Rick Hill notes there is significant legal nuance to an effort like this from a MISMO perspective, and is first convening compliance and risk professionals to decide whether MISMO should pursue it and what the scope would be. Work was not expected to begin before September 2026, after MBA's summit.",
+  "potentialSolutions": [
+    "General \"AI in use\" disclosure",
+    "Customer interaction disclosure (e.g., chatbots / GenAI)",
+    "AI-assisted decision support disclosure",
+    "AI-influenced decision disclosure",
+    "Adverse action / explanation enhancements",
+    "AI-generated content labeling"
+  ],
+  "leadership": [],
+  "stakeholderTypes": [
+    "Mortgage Originator",
+    "Document Provider",
+    "Law Firm",
+    "Trade Association"
+  ],
+  "organizations": [
+    {
+      "org": "Chase",
+      "type": "Mortgage Originator",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "NFM Lending",
+      "type": "Mortgage Originator",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "Towne Mortgage",
+      "type": "Mortgage Originator",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "DHI Mortgage",
+      "type": "Mortgage Originator",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "Pulte Mortgage",
+      "type": "Mortgage Originator",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "Waterstone Mortgage",
+      "type": "Mortgage Originator",
+      "engagement": "contacted",
+      "contact": "",
+      "barrier": "",
+      "notes": "No response yet"
+    },
+    {
+      "org": "Kind Lending",
+      "type": "Mortgage Originator",
+      "engagement": "contacted",
+      "contact": "",
+      "barrier": "",
+      "notes": "No response yet"
+    },
+    {
+      "org": "Atlantic Bay Mortgage",
+      "type": "Mortgage Originator",
+      "engagement": "contacted",
+      "contact": "",
+      "barrier": "",
+      "notes": "No response yet"
+    },
+    {
+      "org": "Interlinc Mortgage Services",
+      "type": "Mortgage Originator",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "Absolute Home Loans",
+      "type": "Mortgage Originator",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "UWM",
+      "type": "Mortgage Originator",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "CMG",
+      "type": "Mortgage Originator",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "Asurity",
+      "type": "Document Provider",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "DocMagic",
+      "type": "Document Provider",
+      "engagement": "interested",
+      "contact": "",
+      "barrier": "",
+      "notes": ""
+    },
+    {
+      "org": "Docutech",
+      "type": "Document Provider",
+      "engagement": "contacted",
+      "contact": "",
+      "barrier": "",
+      "notes": "No response yet"
+    },
+    {
+      "org": "Wolters Kluwer",
+      "type": "Document Provider",
+      "engagement": "contacted",
+      "contact": "",
+      "barrier": "",
+      "notes": "No response yet"
+    },
+    {
+      "org": "Docs Direct",
+      "type": "Document Provider",
+      "engagement": "contacted",
+      "contact": "",
+      "barrier": "",
+      "notes": "No response yet"
+    },
+    {
+      "org": "Brody Gapp LLP",
+      "type": "Law Firm",
+      "engagement": "contacted",
+      "contact": "",
+      "barrier": "",
+      "notes": "Responded \"Maybe\""
+    },
+    {
+      "org": "Weiner Brodsky Kider",
+      "type": "Law Firm",
+      "engagement": "contacted",
+      "contact": "",
+      "barrier": "",
+      "notes": "No response yet"
+    },
+    {
+      "org": "Mortgage Bankers Association",
+      "type": "Trade Association",
+      "engagement": "interested",
+      "contact": "Rick Hill, VP of Technology",
+      "barrier": "",
+      "notes": ""
+    }
+  ],
+  "updates": []
+}
