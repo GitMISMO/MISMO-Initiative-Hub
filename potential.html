@@ -80,6 +80,10 @@
   .linfo{flex:1; min-width:0;} .lname{font-weight:700;} .lmeta{font-size:12.5px; color:var(--slate-text);}
   select.rtag{font:inherit; font-size:11.5px; font-weight:700; color:var(--brand-text); background:var(--brand-soft); border:1px solid var(--brand-soft); padding:5px 10px; border-radius:999px; flex:0 0 auto;}
   .lead-add{margin-bottom:0; flex-wrap:wrap;} .lead-add input{flex:1 1 150px;} .lead-add select{flex:1 1 200px; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px;}
+  /* Collapsed "add" affordance — a link, not a permanent form, so an empty leadership
+     list doesn't show a wall of blank inputs. Expands into .lead-add on click. */
+  .add{color:var(--brand-text); font-weight:700; font-size:13px; cursor:pointer; display:inline-block;}
+  .add:hover{text-decoration:underline;}
   .addrow{display:flex; gap:8px; margin-bottom:14px;}
   .addrow input{flex:1; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px;}
   .addrow input.by{flex:0 0 180px;}
@@ -155,6 +159,7 @@
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const id = new URLSearchParams(location.search).get('id') || '';
   let rec = null, sha = null, dirty = false, activeType = null, search = '';
+  let leadAddOpen = false;   // whether the "Add a potential leader" fields are expanded
 
   function fmtWhen(iso){ const d = new Date(iso); if (isNaN(d)) return ''; return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) + ' · ' + d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); }
   function fmtDate(s){ if (!s) return ''; const d = new Date(s + 'T00:00:00'); return isNaN(d) ? s : d.toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}); }
@@ -210,11 +215,13 @@
           const initials = ((n) => n.split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join(''))(l.name || '?');
           return `<div class="lrow"><div class="av">${esc(initials)}</div><div class="linfo"><div class="lname">${esc(l.name)}</div><div class="lmeta">${[l.title, l.company].filter(Boolean).map(esc).join(' · ') || '<span class="muted">No title or company recorded</span>'}</div></div><select class="rtag" data-role="${i}">${P.LEADERSHIP_ROLES.map(r => `<option ${r === l.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select><button class="btn secondary small" data-rm-lead="${i}" title="Remove">×</button></div>`;
         }).join('')}</div>` : `<div class="muted" style="margin-bottom:10px">No potential leaders identified yet.</div>`}
+        ${leadAddOpen ? `
         <div class="addrow lead-add">
           <input type="text" id="ldName" placeholder="Name"><input type="text" id="ldTitle" placeholder="Title"><input type="text" id="ldCompany" placeholder="Company">
           <select id="ldRole">${P.LEADERSHIP_ROLES.map(r => `<option>${esc(r)}</option>`).join('')}</select>
           <button class="btn" id="ldAdd">Add</button>
-        </div>
+          <button class="btn secondary" id="ldCancel">Cancel</button>
+        </div>` : `<div class="add" id="ldAddToggle">+ Add a potential leader</div>`}
       </div></div>
 
       <div class="card"><div class="sec">Stakeholder engagement</div><div class="body">
@@ -239,10 +246,16 @@
     document.querySelectorAll('[data-eng]').forEach(sel => sel.addEventListener('change', () => { rec.organizations[+sel.dataset.eng].engagement = sel.value; setDirty(true); render(); }));
     document.querySelectorAll('[data-role]').forEach(sel => sel.addEventListener('change', () => { rec.leadership[+sel.dataset.role].role = sel.value; setDirty(true); }));
     document.querySelectorAll('[data-rm-lead]').forEach(b => b.addEventListener('click', () => { rec.leadership.splice(+b.dataset.rmLead, 1); setDirty(true); render(); }));
-    $('ldAdd').addEventListener('click', () => {
+    const ldToggle = $('ldAddToggle'); if (ldToggle) ldToggle.addEventListener('click', () => { leadAddOpen = true; render(); $('ldName').focus(); });
+    const ldCancel = $('ldCancel'); if (ldCancel) ldCancel.addEventListener('click', () => { leadAddOpen = false; render(); });
+    const ldAddBtn = $('ldAdd');
+    if (ldAddBtn) ldAddBtn.addEventListener('click', () => {
       const name = $('ldName').value.trim(); if (!name) return;
       rec.leadership = [...(rec.leadership || []), { name, title: $('ldTitle').value.trim(), company: $('ldCompany').value.trim(), role: $('ldRole').value }];
       setDirty(true); render();
+      // Stays open with fields cleared, so adding several people in a row doesn't
+      // require reopening the form each time.
+      $('ldName').focus();
     });
     $('updAdd').addEventListener('click', () => {
       const text = $('updText').value.trim(), by = $('updBy').value.trim();
