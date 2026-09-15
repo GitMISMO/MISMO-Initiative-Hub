@@ -262,6 +262,7 @@
 
   /* ----- boot ----- */
   (async () => {
+   try {
     await S.types.load();
     typeKeys = S.typeKeys();
     allTypes = [...typeKeys].map(k => ({ key:k, name:S.typeName(k) })).sort((a, b) => a.name.localeCompare(b.name));
@@ -274,6 +275,9 @@
       sha = r.sha; rec = { ...blank(), ...r.data }; delete rec.savedBy; delete rec.savedAt;
       showForm(); fill();
     }
+   } catch (e) {
+    $('upload').innerHTML = `<div class="note err"><strong>This page couldn't load.</strong> ${esc(e && e.message || e)}<br>Try a hard refresh (Ctrl+Shift+R, or Cmd+Shift+R on a Mac).</div>`;
+   }
   })();
 })();
 </script>

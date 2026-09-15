@@ -272,6 +272,7 @@
   });
 
   (async () => {
+   try {
     if (!id) { $('app').innerHTML = '<div class="card"><div class="body">No initiative specified.</div></div>'; return; }
     $('editLink').href = 'potential-edit.html?id=' + encodeURIComponent(id);
     await S.types.load();
@@ -280,6 +281,11 @@
     if (!r.data) { $('app').innerHTML = `<div class="card"><div class="body">There is no potential initiative with the id “${esc(id)}”.</div></div>`; return; }
     rec = r.data; sha = r.sha; document.title = rec.name + ' — MISMO Initiative Hub';
     render();
+   } catch (e) {
+    // Never leave the page on "Loading…". The usual cause is a stale cached copy of
+    // dashboard-data.js after a deploy; a hard refresh clears it.
+    $('app').innerHTML = `<div class="card"><div class="body"><strong>This page couldn't load.</strong><div class="muted" style="margin-top:6px">${esc(e && e.message || e)}</div><div style="margin-top:10px">Try a hard refresh (Ctrl+Shift+R, or Cmd+Shift+R on a Mac). If it keeps happening, tell the site owner.</div></div></div>`;
+   }
   })();
 })();
 </script>
