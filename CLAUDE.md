@@ -35,7 +35,7 @@ edits are committed to `data/<id>.json` through the GitHub contents API. See
 | `facilitators.json` | Who can save: one admin, N facilitators, as name + SHA-256 of a generated passcode. Public; hashes only. Edited by the admin panel (or by hand on GitHub). |
 | `stakeholder-types.json` | The global stakeholder-type list: `types` = `{key, name}` (key immutable, name is what people see) and `usage` = which dashboards use which keys. Every dashboard reads it at boot for display names. `usage` is maintained by `_dev/check-types.py`, never by the panel. |
 | `_dev/check-types.py` | Verifies `stakeholder-types.json` matches each dashboard's `ROSTER_TYPE_TO_LANE`; `--write` rebuilds `usage`. Run after any type change in a dashboard and before pushing. |
-| `_dev/aws/index.mjs`, `_dev/aws/SETUP.md`, `key-helper.html` | The save relay (Lambda), how to stand it up, and the offline passcode/hash generator. |
+| `_dev/aws/index.mjs`, `_dev/aws/SETUP.md`, `_dev/aws/TESTING.md`, `_dev/aws/test-relay.mjs`, `key-helper.html` | The shared save relay (Lambda), the phased setup for both projects, the manual test checklist, 58 automated cases, and the offline passcode generator. |
 | `data/<id>.json` | One committed data file per dashboard, created by the first save. Absent until then; a missing file means "use the built-in defaults". |
 | `_dev/dashboard-template.html` | Starting point for building a **new** dashboard — see below |
 | `_dev/validate_nesting.py` | HTML nesting validator used before every deploy |
@@ -116,7 +116,14 @@ comments, and it's the same tradeoff already live on all four real dashboards
     shipped in a first draft and was caught in review. If someone else
     committed since load, GitHub answers 409 and the user is told to reload.
   - **Writes go through a relay** (an AWS Lambda; source and setup in
-    `_dev/aws/`). It holds the one GitHub token. People identify with a
+    `_dev/aws/`). ONE Lambda serves BOTH this project and the Business Glossary:
+    every route is prefixed with a project key (`/hub/…`, `/glossary/…`) and a
+    single lookup in the `PROJECTS` env var resolves repo, branch, origin and
+    facilitator list together. Never take a repo from anywhere else — a routing
+    mistake crossing projects is this design's one real risk, and the
+    facilitator cache must stay keyed BY REPOSITORY (a global cache let one
+    project's list authenticate another's request; caught by test). It holds
+    the one GitHub token. People identify with a
     personal key (`Display Name:passcode`, in localStorage as
     `mismo-hub-facilitator-key`) and never see a token. The relay forwards the
     page's SHA untouched; it must never fetch a fresh one. `RELAY_URL` at the

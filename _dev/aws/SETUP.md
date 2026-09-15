@@ -1,160 +1,208 @@
-# Save relay — AWS setup
+# Save relay — setup for both projects
 
-One Lambda function. It holds the single GitHub token, accepts saves from people who
-present a valid key, and commits them. Nothing is stored in AWS; the repository is the
-data store.
+One AWS Lambda serves **both** the Initiative Hub and the Business Glossary. It holds the
+single GitHub token, and nobody editing either site ever handles one.
 
-Two jobs, two owners:
+Read this in order. The sequence matters: the Hub goes first and is proven in production
+before the Glossary moves, so that if something is wrong you are debugging one new
+component against one known-good site, not two changes at once.
 
-- **AWS side** (steps 2–4): create the Lambda and set four environment variables. Done
-  once, by whoever owns the AWS account. Nothing here changes afterwards except the
-  GitHub token when it expires.
-- **Keys** (step 5): who can save. Managed in `facilitators.json` in this repository by
-  the admin, with no AWS access needed. Later, the admin panel edits that file for you.
+---
 
-## 1. Create the GitHub token the relay will use
+## Why one Lambda and not two
+
+An earlier draft of this plan used a separate function per project, on the grounds that it
+isolated the GitHub token. Within a single AWS account that is mostly false — anyone who
+can read one function's environment variables can read the other's — so it bought
+complexity for isolation that did not exist. One function, one token to rotate, one setup.
+
+What a shared relay genuinely does risk is a routing mistake letting a request for one
+project write to the other's repository. The design prevents it by making **one lookup**
+resolve repository, branch, allowed origin and facilitator list together, from the project
+key in the URL. Nothing downstream may take a repository from anywhere else.
+
+That is also where the test suite is heaviest, and it earned its keep: it caught a real
+cross-project leak during development, where the facilitator-list cache was global rather
+than per repository, so a cached list from one project could authenticate a request for
+the other. See `test-relay.mjs`.
+
+---
+
+## Phase 1 — Stand up the relay for the Hub
+
+### 1.1 Create the GitHub token
 
 GitHub → Settings → Developer settings → Personal access tokens → Fine-grained.
 
-- Resource owner: **GitMISMO** (the organization, not a personal account — this is
-  the step most often missed; a token owned by an individual cannot see this repo)
-- Repository access: **Only select repositories** → `MISMO-Initiative-Hub`
+- Resource owner: **GitMISMO** (the organisation, not a personal account — a token owned
+  by an individual cannot see these repositories)
+- Repository access: **Only select repositories** → select **both**
+  `MISMO-Initiative-Hub` **and** `mismo-business-glossary`
 - Permissions → Repository → **Contents: Read and write**. Nothing else.
-- Expiration: your call. When it expires, saving stops with a clear message
-  ("The save relay could not reach GitHub — its token was rejected") until you
-  replace it in step 3. Set a calendar reminder for a week before.
+- Expiration: your call. When it lapses, saving stops with a clear message until it is
+  replaced. Put a reminder in the calendar a week before.
 
-Copy it once. It goes into the Lambda in step 3 and nowhere else — not into a
-document, not into a chat.
+Selecting both repositories now means the Glossary needs no token work in Phase 3.
 
-## 2. Create the Lambda
+If the organisation requires owner approval for tokens, the token will exist but fail
+until an owner approves it under Settings → Third-party Access → Personal access tokens.
+
+### 1.2 Create the Lambda
 
 AWS Console → Lambda → Create function.
 
-- Author from scratch
-- Name: `mismo-hub-save-relay` (anything works)
-- Runtime: **Node.js 22.x** (20.x also fine)
-- Architecture: arm64 (cheaper; either works)
-- Permissions: leave the default new role. The function calls no AWS services.
+- Author from scratch, name `mismo-save-relay`
+- Runtime **Node.js 22.x** (20.x also fine), architecture arm64
+- Default execution role. The function calls no AWS services.
 
-After it's created, in the **Code** tab, replace the contents of `index.mjs` with
-`_dev/aws/index.mjs` from this repository, then **Deploy**.
+In the **Code** tab, replace `index.mjs` with `_dev/aws/index.mjs` from the Hub
+repository, then **Deploy**.
 
-## 3. Environment variables
+### 1.3 Environment variables
 
-Configuration → Environment variables → Edit. Add these four:
+Configuration → Environment variables. Two of them:
 
 | Key | Value |
 |---|---|
-| `GITHUB_TOKEN` | the token from step 1 |
-| `GITHUB_REPO` | `GitMISMO/MISMO-Initiative-Hub` |
-| `GITHUB_BRANCH` | `main` |
-| `ALLOWED_ORIGIN` | `https://gitmismo.github.io` — exactly, no trailing slash |
+| `GITHUB_TOKEN` | the token from 1.1 |
+| `PROJECTS` | the JSON below, on one line |
 
-That's everything AWS needs. Facilitators are **not** configured here — see step 5.
-
-**To rotate the GitHub token:** replace `GITHUB_TOKEN` and save. Takes effect on the
-next request; no redeploy.
-
-AWS stores environment variables encrypted at rest with a KMS key by default. That's
-sufficient here.
-
-## 4. Function URL
-
-Configuration → Function URL → Create function URL.
-
-- Auth type: **NONE**. The function does its own authentication with the facilitator
-  key. AWS's IAM auth would require facilitators to have AWS credentials, which is the
-  problem we're avoiding.
-- **CORS: leave it off.** The function sends CORS headers itself. Turning this on as
-  well sends duplicate headers and the browser refuses every response. This is the
-  one setting people reach for reflexively; don't.
-
-Copy the URL. It looks like `https://abc123xyz.lambda-url.us-east-1.on.aws`.
-
-## 5. Keys — who can save
-
-Keys live in `facilitators.json` at the repository root. It holds one **admin** (you)
-and any number of **facilitators**, each as a display name and the SHA-256 hash of a
-generated passcode. The file is public, which is why it holds hashes, and why passcodes
-must be generated rather than chosen.
-
-Open **https://gitmismo.github.io/MISMO-Initiative-Hub/key-helper.html** (the
-published site; it makes no network requests and nothing you generate leaves the
-page). Do not use GitHub's "raw" view — that shows the source as text rather than
-running it. For each person:
-
-1. Type their display name. It becomes the git author on their saves, so use a real one.
-2. Pick the role. Make **yourself** the admin first; there is exactly one.
-3. Click Generate. Copy the passcode and give it to the person **once**. It cannot be
-   looked up later — if lost, generate a new one and replace their hash.
-4. Copy the snippet and paste it into `facilitators.json` on GitHub (edit the file in the
-   web UI, commit). The admin snippet replaces the `"admin": null` line; a facilitator
-   snippet goes in the `facilitators` array.
-
-Keep your **own** admin passcode in a password manager. Facilitators' passcodes can be
-regenerated later from the admin panel; yours can only be reset by editing the file.
-
-**To revoke a facilitator:** remove their entry, commit. Their next save is refused,
-within thirty seconds at most.
-
-**To make a key lapse on a date:** add `"expires": "2027-01-01"` to their entry.
-
-After your admin entry is in the file, use **`admin.html`** on the site for everything
-else: it adds facilitators (generating and showing their passcode once), resets
-passcodes, removes people, sets expiries, and manages the global stakeholder-type list.
-You only open `facilitators.json` by hand to create or rotate your own admin entry.
-
-## 6. Point the dashboards at the relay
-
-In `dashboard-data.js` at the repository root, set:
-
-```js
-var RELAY_URL = 'https://abc123xyz.lambda-url.us-east-1.on.aws';
+```json
+{"hub":{"repo":"GitMISMO/MISMO-Initiative-Hub","branch":"main","origin":"https://gitmismo.github.io"},
+ "glossary":{"repo":"GitMISMO/mismo-business-glossary","branch":"main","origin":"https://gitmismo.github.io"}}
 ```
 
-No trailing slash. Commit and push. That's the only code change; the URL is not a
-secret, so committing it is fine.
+`origin` is the exact site address with no trailing slash. Both sites are on
+`gitmismo.github.io` today; when they move to their AWS domains, change these two values
+and nothing else.
 
-## 7. Check it works
+To rotate the token later, replace `GITHUB_TOKEN`. Takes effect on the next request.
 
-1. Open any dashboard, make an edit, click Save. You'll be asked for your display
-   name and passcode — exactly as in `facilitators.json`.
-2. The button should read "Saved". The repository gets a commit
-   `Update MCD dashboard data (saved by Jane Facilitator)` with Jane as the author.
-3. Reload in a private window: the edit is there, because everyone reads the
-   committed file.
-4. Two browsers, same dashboard: save in one, then save in the other. The second
-   must refuse with "Someone else saved while you were editing." If it doesn't, the
-   lock is broken and that's a bug to report.
+### 1.4 Function URL
 
-## What each person can do
+Configuration → Function URL → Create.
 
-| | Read dashboards | Save | Manage facilitators | See a GitHub token |
+- Auth type **NONE** — the function authenticates people itself with facilitator keys.
+  AWS IAM auth would require every facilitator to have AWS credentials, which is the
+  problem being avoided.
+- **CORS: leave it OFF.** The function sends its own CORS headers. Enabling AWS's as well
+  sends duplicates and the browser rejects every response. This is the setting people
+  reach for by reflex; don't.
+
+Copy the URL: `https://….lambda-url.us-east-1.on.aws`
+
+### 1.5 Point the Hub at it
+
+In `dashboard-data.js` at the Hub repository root:
+
+```js
+var RELAY_URL = 'https://….lambda-url.us-east-1.on.aws';   // no trailing slash
+var PROJECT   = 'hub';                                      // already set
+```
+
+Commit and push. The URL is not a secret.
+
+### 1.6 Create your admin key
+
+Open **https://gitmismo.github.io/MISMO-Initiative-Hub/key-helper.html**. It runs entirely
+in your browser and makes no network requests.
+
+Enter your name, choose **Admin**, click Generate. Put the passcode in a password manager —
+facilitators' passcodes can be regenerated from the admin panel, yours can only be reset by
+editing the file. Paste the snippet into `facilitators.json` in place of `"admin": null`
+and commit.
+
+Then use `admin.html` on the site to add everyone else.
+
+### 1.7 Test it
+
+Run the Phase 1 checklist in `TESTING.md`. Do not skip test 6 — it is the one that proves
+two people cannot silently overwrite each other.
+
+---
+
+## Phase 2 — Run on it
+
+Use the Hub normally for a week or two. Facilitators save dashboards, you manage people in
+the admin panel. What you are looking for is anything that only shows up with real use:
+tokens expiring, a key that stops working, a save that fails at an awkward moment.
+
+Do not start Phase 3 until saving has been boring for a while.
+
+---
+
+## Phase 3 — Move the Glossary onto the relay
+
+The Glossary's console works today by having the facilitator paste a GitHub token into it.
+Phase 3 replaces that with a facilitator key, so the token lives only on the relay.
+
+**What does not change:** the staged → draft → published model, the diff format, the
+IndexedDB working copy, the stale-browser guards, the hourly autosave. All of that is
+specific to how the Glossary is edited and stays exactly as it is. This phase changes
+*where the write goes*, not how editing works.
+
+### 3.1 Add the Glossary's facilitators file
+
+`facilitators.json` at the **Glossary** repository root, same shape as the Hub's, its own
+people. Generate entries with the same `key-helper.html`. Keys are per project: a Glossary
+key cannot save a Hub dashboard and the reverse, which is enforced by the relay and tested.
+
+### 3.2 Repoint the console's write path
+
+The console currently calls `api.github.com` directly with `ghCommit()` (blobs → tree →
+commit → ref). The relay exposes exactly that shape at `POST /glossary/commit`:
+
+```js
+// body
+{ files: [ {path: 'data/glossary.json', content: '…'}, {path: '.console/draft.json', content: '…'} ],
+  message: 'Save working draft (0 added, 27 edited, 0 removed) — hourly save',
+  parentSha: '<the commit this browser last read>' }
+```
+
+The relay appends `[Name]` to the message from the facilitator key, so the manual
+editor-name field can go — attribution now comes from the key rather than being typed.
+
+`parentSha` is how the non-forced ref update survives: send the commit you read, and if the
+branch moved you get a `409 CONFLICT` instead of overwriting someone. This replaces the
+token, not the guards — **keep every check in `docs/saving-pattern.md` §5 exactly as it
+is.** The relay protects the repository; those guards protect against a stale browser,
+which is a different failure that the relay cannot see.
+
+### 3.3 Remove the token UI
+
+Once saving works through the relay, the access-token field in the console's connect dialog
+comes out and is replaced by name + passcode. Do this last, so there is a way back.
+
+---
+
+## Who can do what
+
+| | Read either site | Save | Manage people | See a GitHub token |
 |---|---|---|---|---|
 | Anyone with the URL | yes | no | no | no |
-| Facilitator with a key | yes | yes, as themselves | no | no |
-| Admin (you) | yes | yes | yes, in GitHub or the panel | no |
-| AWS account owner (IT) | yes | no | no | only them, only in AWS |
+| Facilitator with a key | yes | their project only | no | no |
+| Admin (you) | yes | yes | yes, in each repo | no |
+| AWS account holder (IT) | yes | no | no | only them, only in AWS |
 
-## If something goes wrong
+---
 
-The Save button explains failures in plain words. The ones that mean *you* need to
-act (rather than the facilitator):
+## When something breaks
 
-- "its token was rejected" — `GITHUB_TOKEN` expired or was revoked. IT replaces it.
-- "facilitators.json could not be read" — the file is missing or not valid JSON.
-  Check it on GitHub; a stray comma is the usual cause.
-- "Your facilitator key has expired" — that person's entry has a past `expires`.
-  Remove the date or regenerate.
-- "the site owner still needs to set the relay address" — `RELAY_URL` is empty in
-  `dashboard-data.js`. Step 5.
-- Browser console shows a CORS error — CORS got turned on at the function URL.
-  Step 4.
+The Save button explains failures in plain words. These mean **you** need to act, not the
+facilitator:
 
-CloudWatch Logs under the function will show every invocation if you need more.
+- *"its token was rejected"* — `GITHUB_TOKEN` expired or was revoked. Replace it (1.3).
+- *"the site owner still needs to set the relay address"* — `RELAY_URL` is empty (1.5).
+- *"facilitators.json could not be read"* — the file is missing or not valid JSON in that
+  project's repository. A stray comma is the usual cause.
+- A CORS error in the browser console — CORS got switched on at the function URL (1.4).
+- `UNKNOWN_PROJECT` — the `PROJECT` value in the page does not match a key in `PROJECTS`.
+
+CloudWatch Logs under the function shows every invocation if you need more.
+
+---
 
 ## Cost
 
-Free tier is 1,000,000 requests and 400,000 GB-seconds a month. Five facilitators
-saving a few times a day is a few hundred requests a month. Effectively zero.
+Free tier is 1,000,000 requests a month. Both projects together are a few hundred.
+Effectively zero.

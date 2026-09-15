@@ -156,6 +156,27 @@ function env(name) {
   return v;
 }
 
+/* PROJECTS maps a project key to its repository, branch and allowed origin:
+ *   {"hub":{"repo":"GitMISMO/MISMO-Initiative-Hub","branch":"main","origin":"https://…"},
+ *    "glossary":{"repo":"GitMISMO/mismo-business-glossary","branch":"main","origin":"https://…"}}
+ *
+ * Every route is prefixed with the project key, and ONE lookup resolves repo, branch,
+ * origin and facilitator list together. That is deliberate: routing, the origin check and
+ * the key check must never be able to disagree about which project a request belongs to,
+ * or a key for one project could write to the other's repository. Nothing below may take
+ * a repo from anywhere else. */
+function projects() {
+  let parsed;
+  try { parsed = JSON.parse(env('PROJECTS')); }
+  catch (e) { throw new Error('PROJECTS is not valid JSON'); }
+  return parsed;
+}
+function projectConfig(key) {
+  const p = projects()[key];
+  if (!p || !p.repo || !p.origin) return null;
+  return { key, repo: p.repo, branch: p.branch || 'main', origin: p.origin };
+}
+
 /* ---------- GitHub ---------- */
 
 async function github(method, path, body) {
@@ -188,14 +209,18 @@ async function readFile(repo, branch, path) {
 
 /* ---------- facilitators ---------- */
 
-let facilitatorsCache = { at: 0, value: null };
+/* Keyed BY REPOSITORY, not global. A single shared cache across projects would let a
+ * cached facilitator list from one project authenticate a request for another — the exact
+ * cross-project leak a shared relay has to prevent. Found by test, not by reading. */
+const facilitatorsCache = new Map();
 
 /* Reads facilitators.json from GitHub. Cached across invocations of a warm container for
  * FACILITATORS_CACHE_MS so a burst of saves doesn't burst the GitHub API; bypassed for
  * admin reads and after admin writes so the panel always sees the truth. */
 async function loadFacilitators(repo, branch, { fresh = false } = {}) {
   const now = Date.now();
-  if (!fresh && facilitatorsCache.value && now - facilitatorsCache.at < FACILITATORS_CACHE_MS) return facilitatorsCache.value;
+  const hit = facilitatorsCache.get(repo);
+  if (!fresh && hit && now - hit.at < FACILITATORS_CACHE_MS) return hit.value;
   const file = await readFile(repo, branch, FACILITATORS_PATH);
   const value = {
     sha: file.sha,
@@ -204,7 +229,7 @@ async function loadFacilitators(repo, branch, { fresh = false } = {}) {
     missing: file.status === 404,
     error: file.status !== 200 && file.status !== 404 ? (file.corrupt ? 'CORRUPT' : `HTTP ${file.status}`) : null
   };
-  facilitatorsCache = { at: now, value };
+  facilitatorsCache.set(repo, { at: now, value });
   return value;
 }
 
@@ -253,9 +278,11 @@ async function authenticate(headers, repo, branch) {
 
 /* ---------- HTTP ---------- */
 
-function corsHeaders() {
+function corsHeaders(origin) {
   return {
-    'Access-Control-Allow-Origin': env('ALLOWED_ORIGIN'),
+    // Echoes only an origin that a configured project declared. Never '*': these routes
+    // are authenticated by a header, so a wildcard would let any site call them.
+    'Access-Control-Allow-Origin': origin || Object.values(projects())[0]?.origin || 'null',
     'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Facilitator-Key',
     'Access-Control-Max-Age': '600',
@@ -263,9 +290,10 @@ function corsHeaders() {
   };
 }
 
+let responseOrigin = null;   // set once the project is resolved, so CORS matches the caller
 const respond = (status, body) => ({
   statusCode: status,
-  headers: { 'Content-Type': 'application/json', ...corsHeaders() },
+  headers: { 'Content-Type': 'application/json', ...corsHeaders(responseOrigin) },
   body: JSON.stringify(body)
 });
 
@@ -293,21 +321,31 @@ export async function handler(event) {
   const rawPath = event.rawPath || '/';
   const headers = Object.fromEntries(Object.entries(event.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
 
-  if (method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders(), body: '' };
+  responseOrigin = null;
+
+  // Every path starts with the project key. One lookup decides repo, branch and origin.
+  const projMatch = rawPath.match(/^\/([a-z0-9-]+)(\/.*)?$/);
+  const proj = projMatch && projectConfig(projMatch[1]);
+  const subPath = projMatch ? (projMatch[2] || '/') : '/';
+  if (proj) responseOrigin = proj.origin;
+
+  if (method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders(responseOrigin), body: '' };
+  if (!proj) return respond(404, { error: 'UNKNOWN_PROJECT' });
 
   const origin = headers['origin'];
-  if (origin && origin !== env('ALLOWED_ORIGIN')) {
-    return respond(403, { error: 'ORIGIN', message: 'This relay only serves the dashboard site.' });
+  if (origin && origin !== proj.origin) {
+    return respond(403, { error: 'ORIGIN', message: 'This relay does not serve that site.' });
   }
 
-  const repo = env('GITHUB_REPO');
-  const branch = env('GITHUB_BRANCH');
+  const repo = proj.repo;
+  const branch = proj.branch;
 
-  const dataMatch = rawPath.match(/^\/data\/([^/]+)$/);
-  const potentialMatch = rawPath.match(/^\/potential\/([^/]+)$/);
-  const configMatch = rawPath.match(/^\/config\/([a-z0-9-]+)$/);
-  const isFacilitators = rawPath === '/facilitators';
-  if (!dataMatch && !potentialMatch && !isFacilitators && !configMatch) return respond(404, { error: 'NOT_FOUND' });
+  const dataMatch = subPath.match(/^\/data\/([^/]+)$/);
+  const potentialMatch = subPath.match(/^\/potential\/([^/]+)$/);
+  const configMatch = subPath.match(/^\/config\/([a-z0-9-]+)$/);
+  const commitMatch = subPath === '/commit';
+  const isFacilitators = subPath === '/facilitators';
+  if (!dataMatch && !potentialMatch && !isFacilitators && !configMatch && !commitMatch) return respond(404, { error: 'NOT_FOUND' });
   if (configMatch && !CONFIG_FILES[configMatch[1]]) return respond(404, { error: 'NOT_FOUND' });
 
   const who = await authenticate(headers, repo, branch);
@@ -350,6 +388,66 @@ export async function handler(event) {
     }
 
     return respond(405, { error: 'METHOD' });
+  }
+
+  /* ----- arbitrary commit via the Git Data API: facilitator or admin -----
+   * The Contents API used everywhere else refuses files over 1MB and writes one file per
+   * call. The glossary's working copy is far larger than that and its content and metadata
+   * must not be able to disagree, so it needs blobs -> tree -> commit -> ref instead.
+   * parentSha is the commit the caller last read: the ref update is NOT forced, so if the
+   * branch moved underneath, GitHub rejects it rather than discarding the other commit. */
+  if (commitMatch) {
+    if (method !== 'POST' && method !== 'PUT') return respond(405, { error: 'METHOD' });
+    const { body, error } = parseBody(event);
+    if (error) return error;
+    const files = Array.isArray(body?.files) ? body.files : null;
+    if (!files || !files.length) return respond(400, { error: 'BAD_CONTENT' });
+    if (files.length > 50) return respond(400, { error: 'TOO_MANY_FILES' });
+    for (const f of files) {
+      if (typeof f?.path !== 'string' || !f.path || f.path.includes('..') || f.path.startsWith('/')) {
+        return respond(400, { error: 'BAD_PATH', path: f?.path });
+      }
+      if (typeof f?.content !== 'string') return respond(400, { error: 'BAD_FILE', path: f.path });
+    }
+    const message = typeof body.message === 'string' && body.message.trim()
+      ? body.message.trim().slice(0, 500) : 'Update';
+
+    try {
+      const ref = await github('GET', `/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`);
+      if (ref.status !== 200) return respond(502, { error: 'GITHUB', status: ref.status });
+      const head = ref.json.object.sha;
+      // The caller tells us which commit it read. Mismatch means someone else committed.
+      if (body.parentSha && body.parentSha !== head) return respond(409, { error: 'CONFLICT', head });
+
+      const baseCommit = await github('GET', `/repos/${repo}/git/commits/${head}`);
+      if (baseCommit.status !== 200) return respond(502, { error: 'GITHUB', status: baseCommit.status });
+
+      const tree = [];
+      for (const f of files) {
+        const blob = await github('POST', `/repos/${repo}/git/blobs`, {
+          content: Buffer.from(f.content, 'utf8').toString('base64'), encoding: 'base64'
+        });
+        if (blob.status !== 201) return respond(502, { error: 'GITHUB', status: blob.status, path: f.path });
+        tree.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.json.sha });
+      }
+      const newTree = await github('POST', `/repos/${repo}/git/trees`, { base_tree: baseCommit.json.tree.sha, tree });
+      if (newTree.status !== 201) return respond(502, { error: 'GITHUB', status: newTree.status });
+
+      const commit = await github('POST', `/repos/${repo}/git/commits`, {
+        message: `${message} [${who.name}]`, tree: newTree.json.sha, parents: [head], author: authorFor(who.name)
+      });
+      if (commit.status !== 201) return respond(502, { error: 'GITHUB', status: commit.status });
+
+      const upd = await github('PATCH', `/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, {
+        sha: commit.json.sha, force: false
+      });
+      if (upd.status === 422) return respond(409, { error: 'CONFLICT' });
+      if (upd.status !== 200) return respond(502, { error: 'GITHUB', status: upd.status });
+
+      return respond(200, { commit: commit.json.sha, savedBy: who.name });
+    } catch (e) {
+      return respond(502, { error: 'GITHUB', message: String(e && e.message || e) });
+    }
   }
 
   /* ----- potential initiatives: facilitator or admin ----- */
@@ -489,7 +587,7 @@ export async function handler(event) {
     });
     const bad = writeOutcome(status, json, !!body.sha);
     if (bad) return bad;
-    facilitatorsCache = { at: 0, value: null };   // next auth must see the new list
+    facilitatorsCache.delete(repo);   // next auth for THIS project must see the new list
     return respond(200, { sha: json.content?.sha });
   }
 

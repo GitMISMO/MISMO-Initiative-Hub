@@ -40,6 +40,10 @@
    * No trailing slash. Empty until the Lambda exists; saving explains that if so. */
   var RELAY_URL = '';
 
+  /* The relay serves more than one project, so every path is prefixed with this key.
+   * It must match a key in the Lambda's PROJECTS variable. */
+  var PROJECT = 'hub';
+
   var KEY_KEY = 'mismo-hub-facilitator-key';   // localStorage: "Display Name:passcode"
 
   var cfg = { id: null, path: null };
@@ -62,7 +66,7 @@
     opts = opts || {};
     var headers = { 'X-Facilitator-Key': getKey() };
     if (opts.body) headers['Content-Type'] = 'application/json';
-    return fetch(RELAY_URL + path, {
+    return fetch(RELAY_URL + '/' + PROJECT + path, {
       method: opts.method || 'GET',
       headers: headers,
       body: opts.body ? JSON.stringify(opts.body) : undefined,

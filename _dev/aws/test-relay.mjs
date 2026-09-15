@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto';
-process.env.GITHUB_TOKEN='ghp_test'; process.env.GITHUB_REPO='Org/Repo'; process.env.GITHUB_BRANCH='main';
-process.env.ALLOWED_ORIGIN='https://org.github.io';
+process.env.GITHUB_TOKEN='ghp_test';
+process.env.PROJECTS=JSON.stringify({
+  hub:      {repo:'Org/Repo',      branch:'main', origin:'https://org.github.io'},
+  glossary: {repo:'Org/Glossary',  branch:'main', origin:'https://glossary.example'}
+});
 const h = s => createHash('sha256').update(s).digest('hex');
 
 let facFile = { admin:{name:'Paul Admin', hash:h('adminpass-XYZ')},
@@ -16,7 +19,7 @@ globalThis.fetch = async (url, opts) => {
   return {status:404, json:async()=>({})};
 };
 const { handler } = await import('./index.mjs');
-const ev = (method, path, key, body) => ({ rawPath:path, requestContext:{http:{method}}, headers:{origin:'https://org.github.io', ...(key?{'x-facilitator-key':key}:{})}, body: body?JSON.stringify(body):undefined });
+const ev = (method, path, key, body) => ({ rawPath:'/hub'+path, requestContext:{http:{method}}, headers:{origin:'https://org.github.io', ...(key?{'x-facilitator-key':key}:{})}, body: body?JSON.stringify(body):undefined });
 const ok = (n,c)=>console.log((c?'PASS ':'FAIL ')+n);
 const J = r => JSON.parse(r.body);
 
@@ -162,3 +165,62 @@ r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null
 ok('unknown leadership role refused, named', r.statusCode===400 && J(r).error==='BAD_ROLE' && J(r).name==='Ann');
 r = await handler(ev('PUT','/potential/x','Jane Facilitator:k7Qm-2vXp',{sha:null, content:{...good, leadership:[{name:'',role:'Chair'}]}}));
 ok('leader without a name refused', r.statusCode===400 && J(r).error==='BAD_LEADER');
+
+// ---------- multi-project isolation (the thing a shared Lambda must get right) ----------
+const raw = (method, path, key, body, origin) => ({ rawPath:path, requestContext:{http:{method}},
+  headers:{...(origin?{origin}:{}) , ...(key?{'x-facilitator-key':key}:{})}, body: body?JSON.stringify(body):undefined });
+
+// Glossary has its OWN facilitators.json in its OWN repo — different person entirely.
+const glossaryFac = { admin:{name:'Glossary Admin', hash:h('gloss-admin')}, facilitators:[{name:'Gloss Editor', hash:h('gloss-pass')}] };
+const hubFac      = { admin:{name:'Paul Admin', hash:h('adminpass-XYZ')}, facilitators:[{name:'Jane Facilitator', hash:h('k7Qm-2vXp')}] };
+let reqRepos = [];
+const beforeIso = globalThis.fetch;
+globalThis.fetch = async (url, opts) => {
+  reqRepos.push(url);
+  if (opts.method==='GET' && url.includes('/Org/Glossary/contents/facilitators.json'))
+    return {status:200, json:async()=>({sha:'g'.repeat(40), content:b64(glossaryFac)})};
+  if (opts.method==='GET' && url.includes('/Org/Repo/contents/facilitators.json'))
+    return {status:200, json:async()=>({sha:'f'.repeat(40), content:b64(hubFac)})};
+  if (opts.method==='GET' && url.includes('/git/ref/heads/'))   return {status:200, json:async()=>({object:{sha:'a'.repeat(40)}})};
+  if (opts.method==='GET' && url.includes('/git/commits/'))     return {status:200, json:async()=>({tree:{sha:'t'.repeat(40)}})};
+  if (opts.method==='POST' && url.includes('/git/blobs'))       return {status:201, json:async()=>({sha:'b'.repeat(40)})};
+  if (opts.method==='POST' && url.includes('/git/trees'))       return {status:201, json:async()=>({sha:'n'.repeat(40)})};
+  if (opts.method==='POST' && url.includes('/git/commits'))     return {status:201, json:async()=>({sha:'c'.repeat(40)})};
+  if (opts.method==='PATCH' && url.includes('/git/refs/heads/'))return {status:200, json:async()=>({})};
+  if (opts.method==='GET') return {status:404, json:async()=>({})};
+  return {status:200, json:async()=>({content:{sha:'z'.repeat(40)}})};
+};
+
+
+r = await handler(raw('GET','/nope/data/mcd','Jane Facilitator:k7Qm-2vXp',null,'https://org.github.io'));
+ok('unknown project -> 404', r.statusCode===404 && J(r).error==='UNKNOWN_PROJECT');
+
+// THE important one: a glossary key must not work against the hub, and vice versa.
+r = await handler(raw('GET','/hub/data/mcd','Gloss Editor:gloss-pass',null,'https://org.github.io'));
+ok('glossary key REFUSED on the hub project', r.statusCode===401);
+r = await handler(raw('GET','/glossary/data/x','Jane Facilitator:k7Qm-2vXp',null,'https://glossary.example'));
+ok('hub key REFUSED on the glossary project', r.statusCode===401);
+
+// Origin is per project too.
+r = await handler(raw('GET','/glossary/data/x','Gloss Editor:gloss-pass',null,'https://org.github.io'));
+ok("hub's origin REFUSED on the glossary project", r.statusCode===403 && J(r).error==='ORIGIN');
+
+// A glossary request must only ever touch the glossary repo.
+reqRepos=[];
+r = await handler(raw('POST','/glossary/commit','Gloss Editor:gloss-pass',
+  {files:[{path:'data/glossary.json',content:'{"big":true}'},{path:'.console/draft.json',content:'{}'}], message:'Save working draft', parentSha:'a'.repeat(40)},
+  'https://glossary.example'));
+ok('multi-file commit via Git Data API succeeds', r.statusCode===200 && J(r).commit==='c'.repeat(40));
+ok('commit attributed to the editor', J(r).savedBy==='Gloss Editor');
+ok('glossary request touched ONLY the glossary repo', reqRepos.every(u=>!u.includes('/Org/Repo/')) && reqRepos.some(u=>u.includes('/Org/Glossary/')));
+
+r = await handler(raw('POST','/glossary/commit','Gloss Editor:gloss-pass',
+  {files:[{path:'x.json',content:'{}'}], parentSha:'9'.repeat(40)}, 'https://glossary.example'));
+ok('stale parentSha -> CONFLICT (someone else committed)', r.statusCode===409 && J(r).error==='CONFLICT');
+
+r = await handler(raw('POST','/glossary/commit','Gloss Editor:gloss-pass',
+  {files:[{path:'../../etc/passwd',content:'x'}]}, 'https://glossary.example'));
+ok('path traversal in a commit refused', r.statusCode===400 && J(r).error==='BAD_PATH');
+
+r = await handler(raw('OPTIONS','/glossary/commit',null,null,'https://glossary.example'));
+ok('preflight echoes the project origin', r.statusCode===204 && r.headers['Access-Control-Allow-Origin']==='https://glossary.example');
