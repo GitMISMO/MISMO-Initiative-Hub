@@ -64,23 +64,33 @@
   .lbl{font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--slate-text); margin:0 0 5px;}
   .ov{display:grid; grid-template-columns:1fr 240px; gap:22px;}
   .ov p{margin:0 0 14px; line-height:1.55;}
-  .ov .meta > div{margin-bottom:12px;}
   .muted{color:var(--slate-text); font-style:italic;}
+  /* Facts card: sized to its own content (align-self:start), not stretched to match the
+     narrative column beside it — stretching was leaving visible dead space in the card. */
+  .factcard{border:1px solid var(--line); border-radius:12px; background:var(--paper); padding:16px; align-self:start;}
+  .factcard .lbl:not(:first-child){margin-top:12px;}
+  .factcard .fv{line-height:1.4;}
   ul.sol{margin:0; padding-left:20px; line-height:1.7;} ul.sol li{margin:2px 0;}
-  table.lead{width:100%; border-collapse:collapse; font-size:13.5px; margin-bottom:14px;}
-  table.lead th{text-align:left; font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--slate-text); padding:6px 8px; border-bottom:1px solid var(--line);}
-  table.lead td{padding:8px 8px; border-bottom:1px solid var(--line); vertical-align:middle;} table.lead td.rm{text-align:right;}
-  table.lead select{font:inherit; font-size:12.5px; padding:5px 8px; border-radius:8px; border:1px solid var(--line);}
+  /* Leadership: a flat list of everyone interested, not a seat grid — role is shown as a
+     tag (still an editable select) next to each person rather than segmenting the list. */
+  .lead-rows{display:flex; flex-direction:column; margin-bottom:14px;}
+  .lrow{display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);}
+  .lrow:last-child{border-bottom:none;}
+  .av{width:34px; height:34px; border-radius:50%; background:var(--brand-soft); color:var(--brand-text); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+  .linfo{flex:1; min-width:0;} .lname{font-weight:700;} .lmeta{font-size:12.5px; color:var(--slate-text);}
+  select.rtag{font:inherit; font-size:11.5px; font-weight:700; color:var(--brand-text); background:var(--brand-soft); border:1px solid var(--brand-soft); padding:5px 10px; border-radius:999px; flex:0 0 auto;}
   .lead-add{margin-bottom:0; flex-wrap:wrap;} .lead-add input{flex:1 1 150px;} .lead-add select{flex:1 1 200px; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px;}
   .addrow{display:flex; gap:8px; margin-bottom:14px;}
   .addrow input{flex:1; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px;}
   .addrow input.by{flex:0 0 180px;}
-  .upd{position:relative; padding:0 0 12px 22px; border-left:2px solid var(--line); margin-left:6px;}
-  .upd::before{content:''; position:absolute; left:-7px; top:4px; width:12px; height:12px; border-radius:50%; background:var(--card); border:2px solid var(--slate);}
-  .upd.latest::before{border-color:var(--brand); background:var(--brand-soft);}
-  .upd .t{line-height:1.5;}
-  .upd .w{font-size:12px; color:var(--slate-text); margin-top:3px;} .upd .w strong{color:var(--ink-soft);}
-  .upd.pending .w::after{content:' · not saved yet'; color:var(--gold); font-weight:700;}
+  /* Status updates: a timeline, newest first. */
+  .tl{border-left:2px solid var(--line); margin-left:6px; padding-left:16px;}
+  .tl-i{position:relative; padding-bottom:14px;} .tl-i:last-child{padding-bottom:0;}
+  .tl-i::before{content:''; position:absolute; left:-21px; top:3px; width:10px; height:10px; border-radius:50%; background:var(--card); border:2px solid var(--brand);}
+  .tl-d{font-size:11px; font-weight:700; color:var(--brand-text);}
+  .tl-t{font-size:13.5px; line-height:1.5; margin:2px 0;}
+  .tl-w{font-size:12px; color:var(--slate-text);}
+  .tl-i.pending .tl-w{color:var(--gold); font-weight:700;}
   .eng{display:grid; grid-template-columns:200px 1fr; gap:14px;}
   .engtop{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
   .engtop h3{margin:0; font-size:15px;}
@@ -176,28 +186,15 @@
           <div class="lbl">Summary</div>${rec.summary ? `<p>${esc(rec.summary)}</p>` : `<p class="muted">Not recorded.</p>`}
           <div class="lbl">Why it was raised</div>${rec.whyRaised ? `<p>${esc(rec.whyRaised)}</p>` : `<p class="muted">Not recorded.</p>`}
         </div>
-        <div class="meta">
-          <div><div class="lbl">Brought to MISMO by</div>${rec.broughtBy ? esc(rec.broughtBy) : '<span class="muted">Not recorded</span>'}</div>
-          <div><div class="lbl">Date logged</div>${rec.dateLogged ? esc(fmtDate(rec.dateLogged)) : '<span class="muted">Not recorded</span>'}</div>
-          <div><div class="lbl">Proposed domain</div>${rec.domain ? esc(rec.domain) : '<span class="muted">Not yet assigned</span>'}</div>
-          <div><div class="lbl">Status updates</div>${updates.length} logged</div>
+        <div class="factcard">
+          <div class="lbl">Brought to MISMO by</div><div class="fv">${rec.broughtBy ? esc(rec.broughtBy) : '<span class="muted">Not recorded</span>'}</div>
+          <div class="lbl">Date logged</div><div class="fv">${rec.dateLogged ? esc(fmtDate(rec.dateLogged)) : '<span class="muted">Not recorded</span>'}</div>
+          <div class="lbl">Proposed domain</div><div class="fv">${rec.domain ? esc(rec.domain) : '<span class="muted">Not yet assigned</span>'}</div>
+          <div class="lbl">Status updates</div><div class="fv" style="margin-bottom:0">${updates.length} logged</div>
         </div>
       </div></div>
 
       ${(rec.potentialSolutions || []).length ? `<div class="card"><div class="sec">Potential solutions</div><div class="body"><ul class="sol">${rec.potentialSolutions.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div></div>` : ''}
-
-      <div class="card"><div class="sec">Potential leadership</div><div class="body">
-        ${(rec.leadership || []).length ? `<table class="lead"><thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Role</th><th></th></tr></thead><tbody>
-          ${rec.leadership.map((l, i) => `<tr><td><strong>${esc(l.name)}</strong></td><td>${esc(l.title) || '<span class="muted">—</span>'}</td><td>${esc(l.company) || '<span class="muted">—</span>'}</td>
-            <td><select data-role="${i}">${P.LEADERSHIP_ROLES.map(r => `<option ${r === l.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></td>
-            <td class="rm"><button class="btn secondary small" data-rm-lead="${i}" title="Remove">×</button></td></tr>`).join('')}
-        </tbody></table>` : `<div class="muted" style="margin-bottom:10px">No potential leaders identified yet.</div>`}
-        <div class="addrow lead-add">
-          <input type="text" id="ldName" placeholder="Name"><input type="text" id="ldTitle" placeholder="Title"><input type="text" id="ldCompany" placeholder="Company">
-          <select id="ldRole">${P.LEADERSHIP_ROLES.map(r => `<option>${esc(r)}</option>`).join('')}</select>
-          <button class="btn" id="ldAdd">Add</button>
-        </div>
-      </div></div>
 
       <div class="card"><div class="sec">Status updates</div><div class="body">
         <div class="addrow">
@@ -205,7 +202,19 @@
           <input type="text" id="updText" placeholder="What changed?">
           <button class="btn" id="updAdd">Add</button>
         </div>
-        ${updates.length ? updates.map((u, i) => `<div class="upd ${i === 0 ? 'latest' : ''} ${u._pending ? 'pending' : ''}"><div class="t">${esc(u.text)}</div><div class="w">${u.by ? `<strong>${esc(u.by)}</strong> · ` : ''}${esc(fmtWhen(u.at))}</div></div>`).join('') : `<div class="muted">No updates logged yet.</div>`}
+        ${updates.length ? `<div class="tl">${updates.map((u, i) => `<div class="tl-i ${u._pending ? 'pending' : ''}"><div class="tl-d">${esc(fmtWhen(u.at))}</div><div class="tl-t">${esc(u.text)}</div><div class="tl-w">${u.by ? esc(u.by) : ''}${u._pending ? ' · not saved yet' : ''}</div></div>`).join('')}</div>` : `<div class="muted">No updates logged yet.</div>`}
+      </div></div>
+
+      <div class="card"><div class="sec">Potential leadership</div><div class="body">
+        ${(rec.leadership || []).length ? `<div class="lead-rows">${rec.leadership.map((l, i) => {
+          const initials = ((n) => n.split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join(''))(l.name || '?');
+          return `<div class="lrow"><div class="av">${esc(initials)}</div><div class="linfo"><div class="lname">${esc(l.name)}</div><div class="lmeta">${[l.title, l.company].filter(Boolean).map(esc).join(' · ') || '<span class="muted">No title or company recorded</span>'}</div></div><select class="rtag" data-role="${i}">${P.LEADERSHIP_ROLES.map(r => `<option ${r === l.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select><button class="btn secondary small" data-rm-lead="${i}" title="Remove">×</button></div>`;
+        }).join('')}</div>` : `<div class="muted" style="margin-bottom:10px">No potential leaders identified yet.</div>`}
+        <div class="addrow lead-add">
+          <input type="text" id="ldName" placeholder="Name"><input type="text" id="ldTitle" placeholder="Title"><input type="text" id="ldCompany" placeholder="Company">
+          <select id="ldRole">${P.LEADERSHIP_ROLES.map(r => `<option>${esc(r)}</option>`).join('')}</select>
+          <button class="btn" id="ldAdd">Add</button>
+        </div>
       </div></div>
 
       <div class="card"><div class="sec">Stakeholder engagement</div><div class="body">
