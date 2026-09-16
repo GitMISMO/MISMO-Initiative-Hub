@@ -36,13 +36,19 @@ GitHub → Settings → Developer settings → Personal access tokens → Fine-g
 
 - Resource owner: **GitMISMO** (the organisation, not a personal account — a token owned
   by an individual cannot see these repositories)
-- Repository access: **Only select repositories** → select **both**
-  `initiative-hub` **and** `glossary`
+- Repository access: **Only select repositories** → select **all three**:
+  `initiative-hub`, `glossary`, **and** `GitMISMO.github.io`
+
+  The third one is easy to miss and the failure is confusing if it is. The relay reads
+  `projects.json` from `GitMISMO.github.io` on every cold start. A fine-grained token
+  cannot read a repository it was not granted — not even a public one; GitHub returns
+  401 — so without it every request fails with `503 CONFIG_UNAVAILABLE` and nothing
+  saves. It will look like the Lambda is broken. It is not; the token is short a repo.
 - Permissions → Repository → **Contents: Read and write**. Nothing else.
 - Expiration: your call. When it lapses, saving stops with a clear message until it is
   replaced. Put a reminder in the calendar a week before.
 
-Selecting both repositories now means the Glossary needs no token work in Phase 3.
+Selecting all three now means the Glossary needs no token work in Phase 3.
 
 If the organisation requires owner approval for tokens, the token will exist but fail
 until an owner approves it under Settings → Third-party Access → Personal access tokens.
