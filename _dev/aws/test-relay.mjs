@@ -18,7 +18,7 @@ globalThis.fetch = async (url, opts) => {
   if (opts.method==='PUT') return {status:putStatus, json:async()=>({content:{sha:'n'.repeat(40)}})};
   return {status:404, json:async()=>({})};
 };
-const { handler, __resetProjectsCache: projectsCacheBust } = await import('./index.mjs');
+const { handler, __resetProjectsCache: projectsCacheBust, __resetFacilitatorsCache: facCacheBust } = await import('./index.mjs');
 const ev = (method, path, key, body) => ({ rawPath:'/hub'+path, requestContext:{http:{method}}, headers:{origin:'https://org.github.io', ...(key?{'x-facilitator-key':key}:{})}, body: body?JSON.stringify(body):undefined });
 const ok = (n,c)=>console.log((c?'PASS ':'FAIL ')+n);
 const J = r => JSON.parse(r.body);
@@ -172,14 +172,14 @@ const raw = (method, path, key, body, origin) => ({ rawPath:path, requestContext
 
 // Glossary has its OWN facilitators.json in its OWN repo — different person entirely.
 const glossaryFac = { admin:{name:'Glossary Admin', hash:h('gloss-admin')}, facilitators:[{name:'Gloss Editor', hash:h('gloss-pass')}] };
-const hubFac      = { admin:{name:'Paul Admin', hash:h('adminpass-XYZ')}, facilitators:[{name:'Jane Facilitator', hash:h('k7Qm-2vXp')}] };
+let hubFac        = { admin:{name:'Paul Admin', hash:h('adminpass-XYZ')}, facilitators:[{name:'Jane Facilitator', hash:h('k7Qm-2vXp')}] };
 let reqRepos = [];
 const beforeIso = globalThis.fetch;
 globalThis.fetch = async (url, opts) => {
   reqRepos.push(url);
-  if (opts.method==='GET' && url.includes('/Org/Glossary/contents/facilitators.json'))
+  if (opts.method==='GET' && url.includes('/Org/Glossary/contents/_internal/facilitators.json'))
     return {status:200, json:async()=>({sha:'g'.repeat(40), content:b64(glossaryFac)})};
-  if (opts.method==='GET' && url.includes('/Org/Repo/contents/facilitators.json'))
+  if (opts.method==='GET' && url.includes('/Org/Repo/contents/_internal/facilitators.json'))
     return {status:200, json:async()=>({sha:'f'.repeat(40), content:b64(hubFac)})};
   if (opts.method==='GET' && url.includes('/git/ref/heads/'))   return {status:200, json:async()=>({object:{sha:'a'.repeat(40)}})};
   if (opts.method==='GET' && url.includes('/git/commits/'))     return {status:200, json:async()=>({tree:{sha:'t'.repeat(40)}})};
@@ -295,3 +295,97 @@ r = await handler(evp('hub','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
 ok('PROJECTS_REPO unset -> environment variable is used again', r.statusCode===200);
 r = await handler(evp('press','GET','/data/mcd','Jane Facilitator:k7Qm-2vXp'));
 ok('project only in the file is NOT visible in env mode', r.statusCode===404 && J(r).error==='UNKNOWN_PROJECT');
+
+/* ---------- email + password sign-in, and session tokens ---------- */
+process.env.AUTH_SECRET = 'test-signing-secret';
+delete process.env.PROJECTS_REPO;
+
+const { pbkdf2Sync, randomBytes } = await import('node:crypto');
+const mkHash = (pw, iters = 210000) => {
+  const salt = randomBytes(16).toString('hex');
+  return `pbkdf2$${iters}$${salt}$${pbkdf2Sync(pw, Buffer.from(salt,'hex'), iters, 32, 'sha256').toString('hex')}`;
+};
+
+/* The isolation stub above serves hubFac for Org/Repo, not facFile — set the one that is
+   actually consulted. */
+hubFac = facFile = {
+  admin: { name: 'Jane Facilitator', email: 'jane@mismo.org', hash: mkHash('correct-horse-battery') },
+  facilitators: [
+    { name: 'Sam Staff', email: 'sam@mismo.org', hash: mkHash('another-good-password') },
+    { name: 'Old Key', hash: h('k7Qm-2vXp') }            // legacy plain SHA-256
+  ]
+};
+
+facCacheBust();   // the earlier fixture is still cached for this repo
+
+const login = (body, origin='https://org.github.io') => handler({
+  rawPath:'/hub/auth/login', requestContext:{http:{method:'POST'}},
+  headers:{ origin, 'content-type':'application/json' }, body: JSON.stringify(body)
+});
+
+r = await login({ email:'jane@mismo.org', password:'correct-horse-battery' });
+ok('sign in with email and password returns a token', r.statusCode===200 && typeof J(r).token==='string' && J(r).token.split('.').length===3);
+ok('token response carries name and role', J(r).name==='Jane Facilitator' && J(r).role==='admin');
+const goodToken = J(r).token;
+
+r = await login({ email:'JANE@MISMO.ORG', password:'correct-horse-battery' });
+ok('email match is case-insensitive', r.statusCode===200);
+
+r = await login({ email:'jane@mismo.org', password:'wrong' });
+ok('wrong password refused', r.statusCode===401 && J(r).error==='SIGNIN_FAILED');
+const wrongPwMsg = J(r).message;
+r = await login({ email:'nobody@mismo.org', password:'whatever' });
+ok('unknown account gives the SAME message as a wrong password', r.statusCode===401 && J(r).message===wrongPwMsg);
+
+r = await login({ email:'jane@mismo.org' });
+ok('missing password refused', r.statusCode===400 && J(r).error==='MISSING_CREDENTIALS');
+
+// a token works on a normal route
+const bearer = (tok, proj='hub', path='/data/mcd', origin='https://org.github.io') => handler({
+  rawPath:'/'+proj+path, requestContext:{http:{method:'GET'}},
+  headers:{ origin, authorization:'Bearer '+tok }
+});
+r = await bearer(goodToken);
+ok('a token authenticates a normal request', r.statusCode===200);
+
+r = await bearer(goodToken.slice(0,-3)+'aaa');
+ok('a tampered signature is refused', r.statusCode===401 && J(r).error==='TOKEN_BAD');
+
+r = await bearer('not.a.token');
+ok('a malformed token is refused', r.statusCode===401 && J(r).error==='TOKEN_BAD');
+
+// a token minted for one project must not work on another
+r = await bearer(goodToken, 'glossary', '/data/mcd', 'https://glossary.example');
+ok('a hub token is REFUSED on the glossary project', r.statusCode===401 && J(r).error==='TOKEN_WRONG_PROJECT');
+
+// expiry
+const { createHmac } = await import('node:crypto');
+const b64u = b => Buffer.from(b).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+function mint(payload, secret='test-signing-secret'){
+  const h=b64u(JSON.stringify({alg:'HS256',typ:'JWT'})), p=b64u(JSON.stringify(payload));
+  return h+'.'+p+'.'+b64u(createHmac('sha256',secret).update(h+'.'+p).digest());
+}
+const past = Math.floor(Date.now()/1000) - 10;
+r = await bearer(mint({sub:'jane@mismo.org',name:'Jane Facilitator',role:'admin',project:'hub',iat:past-100,exp:past}));
+ok('an expired token is refused', r.statusCode===401 && J(r).error==='TOKEN_EXPIRED');
+
+r = await bearer(mint({sub:'jane@mismo.org',role:'admin',project:'hub',exp:Math.floor(Date.now()/1000)+600}, 'a-different-secret'));
+ok('a token signed with another secret is refused', r.statusCode===401 && J(r).error==='TOKEN_BAD');
+
+// legacy passcodes still work through the changeover
+r = await handler({ rawPath:'/hub/data/mcd', requestContext:{http:{method:'GET'}},
+  headers:{ origin:'https://org.github.io', 'x-facilitator-key':'Old Key:k7Qm-2vXp' } });
+ok('a legacy plain-SHA-256 passcode still works', r.statusCode===200);
+
+// and a pbkdf2 account works through the legacy header too, by email or by name
+r = await handler({ rawPath:'/hub/data/mcd', requestContext:{http:{method:'GET'}},
+  headers:{ origin:'https://org.github.io', 'x-facilitator-key':'sam@mismo.org:another-good-password' } });
+ok('legacy header accepts an email identifier', r.statusCode===200);
+
+// no secret configured is a server error, not a silent pass
+const keep = process.env.AUTH_SECRET; delete process.env.AUTH_SECRET;
+r = await login({ email:'jane@mismo.org', password:'correct-horse-battery' });
+ok('login without AUTH_SECRET fails loudly', r.statusCode===500 && J(r).error==='NO_AUTH_SECRET');
+r = await bearer(goodToken);
+ok('token auth without AUTH_SECRET is refused, not bypassed', r.statusCode===500 && J(r).error==='NO_AUTH_SECRET');
+process.env.AUTH_SECRET = keep;

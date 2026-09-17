@@ -53,10 +53,17 @@
  * No AWS services are called and no data is stored here.
  */
 
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual, pbkdf2Sync } from 'node:crypto';
 
 const GITHUB_API = 'https://api.github.com';
-const FACILITATORS_PATH = 'facilitators.json';
+/* Under _internal/ so GitHub Pages does not serve it. Jekyll skips underscore-prefixed
+ * paths, and the relay reads this through the GitHub API rather than over the web, so the
+ * move is invisible to it. At the repository root the file was downloadable by anyone at
+ * <site>/facilitators.json, which published the list of everyone holding edit access. */
+const FACILITATORS_PATH = '_internal/facilitators.json';
+const PBKDF2_ITERATIONS = 210000;        // OWASP's 2023 floor for PBKDF2-HMAC-SHA256
+const PBKDF2_KEYLEN = 32;
+const TOKEN_TTL_SECONDS = 8 * 60 * 60;   // one working day, then sign in again
 const FACILITATORS_CACHE_MS = 30_000;              // revocation lands within half a minute
 const PROJECTS_CACHE_MS = 60_000;                  // a newly added tool is live within a minute
 const MAX_BODY_BYTES = 1_000_000;                  // dashboards are ~10 KB; 1 MB is generous
@@ -183,6 +190,7 @@ function env(name) {
  * rogue entry here names a repo the token cannot write, and GitHub refuses it. The file
  * decides which repos the relay *knows about*; the token decides which it can *touch*. */
 const projectsCache = { at: 0, value: null };
+let currentProjectKey = null;   // set per request; a token is only valid for its own project
 let lastKnownOrigin = null;   // see corsHeaders
 
 /* Test hook only. Lambda never calls this — a real container simply ages out after
@@ -282,6 +290,11 @@ async function readFile(repo, branch, path) {
  * cross-project leak a shared relay has to prevent. Found by test, not by reading. */
 const facilitatorsCache = new Map();
 
+/* Test hook only, matching __resetProjectsCache. Lambda never calls it — a warm container
+ * simply ages out after FACILITATORS_CACHE_MS. The suite needs it to swap the fixture
+ * mid-run without waiting out the cache. */
+export function __resetFacilitatorsCache() { facilitatorsCache.clear(); }
+
 /* Reads facilitators.json from GitHub. Cached across invocations of a warm container for
  * FACILITATORS_CACHE_MS so a burst of saves doesn't burst the GitHub API; bypassed for
  * admin reads and after admin writes so the panel always sees the truth. */
@@ -303,6 +316,65 @@ async function loadFacilitators(repo, branch, { fresh = false } = {}) {
 
 const sha256hex = (s) => createHash('sha256').update(s, 'utf8').digest('hex');
 
+/* ---------- passwords ----------
+ *
+ * Verified here and nowhere else: the browser sends the password over HTTPS and never
+ * sees a hash. Stored as "pbkdf2$<iterations>$<salt-hex>$<hash-hex>".
+ *
+ * PBKDF2 rather than a bare SHA-256 because SHA-256 is fast. A commodity GPU tries
+ * billions of candidates a second, so a stolen file of unsalted SHA-256 hashes of
+ * human-chosen passwords falls in minutes. A per-account random salt stops the work being
+ * shared across accounts, and the iteration count makes each guess expensive.
+ *
+ * Plain SHA-256 entries are still accepted so existing passcodes keep working through the
+ * changeover. Those were only ever safe because key-helper.html generated them at high
+ * entropy; reissue them as pbkdf2 and delete that branch. */
+function pbkdf2Hex(password, saltHex, iterations) {
+  return pbkdf2Sync(password, Buffer.from(saltHex, 'hex'), iterations, PBKDF2_KEYLEN, 'sha256').toString('hex');
+}
+
+function verifyPassword(password, stored) {
+  if (typeof stored !== 'string' || !stored) return false;
+  if (stored.startsWith('pbkdf2$')) {
+    const [, iterStr, saltHex, hashHex] = stored.split('$');
+    const iterations = Number(iterStr);
+    if (!Number.isInteger(iterations) || iterations < 1000 || !saltHex || !hashHex) return false;
+    return hashesMatch(hashHex, pbkdf2Hex(password, saltHex, iterations));
+  }
+  return hashesMatch(stored, sha256hex(password));   // legacy, remove once all are pbkdf2
+}
+
+/* ---------- session tokens ----------
+ *
+ * Signed with a secret held only by the Lambda, so a browser cannot mint one. Deliberately
+ * the same shape as a JWT (header.payload.signature, base64url) so that swapping in Cognito
+ * later changes how a token is VERIFIED and nothing about how it is carried. Every route
+ * downstream reads the token, never the password. */
+const b64url = (buf) => Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64urlDecode = (str) => Buffer.from(str.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+
+function signToken(payload, secret) {
+  const head = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = b64url(JSON.stringify(payload));
+  const sig = b64url(createHmac('sha256', secret).update(head + '.' + body).digest());
+  return head + '.' + body + '.' + sig;
+}
+
+function verifyToken(token, secret) {
+  if (typeof token !== 'string') return { error: 'TOKEN_BAD' };
+  const parts = token.split('.');
+  if (parts.length !== 3) return { error: 'TOKEN_BAD' };
+  const [head, body, sig] = parts;
+  const expect = b64url(createHmac('sha256', secret).update(head + '.' + body).digest());
+  if (sig.length !== expect.length) return { error: 'TOKEN_BAD' };
+  if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expect))) return { error: 'TOKEN_BAD' };
+  let payload;
+  try { payload = JSON.parse(b64urlDecode(body)); } catch (e) { return { error: 'TOKEN_BAD' }; }
+  if (!payload || typeof payload.exp !== 'number') return { error: 'TOKEN_BAD' };
+  if (payload.exp * 1000 <= Date.now()) return { error: 'TOKEN_EXPIRED' };
+  return payload;
+}
+
 /* Constant-time comparison of two hex digests, so a passcode can't be guessed one
  * character at a time by timing the response. */
 function hashesMatch(a, b) {
@@ -316,32 +388,64 @@ function isExpired(entry) {
   return Number.isFinite(t) && t <= Date.now();
 }
 
-/* Returns { name, role } or { error } */
+/* Resolves the caller to { email, name, role } or { error }.
+ *
+ * Two ways in, on purpose:
+ *   Authorization: Bearer <token>   the new path. A token minted by /auth/login.
+ *   X-Facilitator-Key: Name:pass    the old path, kept so nothing breaks mid-changeover.
+ *
+ * The token is checked first and costs no GitHub call, so the common case is fast. The
+ * legacy path still reads facilitators.json on every request, which is the other reason
+ * to retire it.
+ *
+ * A token carries the role it was minted with, so a revoked or demoted account keeps its
+ * access until the token expires. TOKEN_TTL_SECONDS is the bound on that, and it is why
+ * the TTL is a working day rather than a week. Removing someone urgently means rotating
+ * AUTH_SECRET, which invalidates every token at once. */
 async function authenticate(headers, repo, branch) {
+  const auth = headers['authorization'] || headers['Authorization'] || '';
+  if (auth.startsWith('Bearer ')) {
+    const secret = process.env.AUTH_SECRET;
+    if (!secret) return { error: 'NO_AUTH_SECRET' };
+    const payload = verifyToken(auth.slice(7).trim(), secret);
+    if (payload.error) return { error: payload.error };
+    if (payload.project && payload.project !== currentProjectKey) return { error: 'TOKEN_WRONG_PROJECT' };
+    return { email: payload.sub, name: payload.name || payload.sub, role: payload.role };
+  }
+
   const raw = headers['x-facilitator-key'] || '';
   const colon = raw.indexOf(':');
   if (colon <= 0) return { error: 'KEY_BAD' };
-  const name = raw.slice(0, colon).trim();
+  const who = raw.slice(0, colon).trim();
   const pass = raw.slice(colon + 1).trim();
-  if (!name || !pass) return { error: 'KEY_BAD' };
+  if (!who || !pass) return { error: 'KEY_BAD' };
 
+  const found = await findAccount(repo, branch, who, pass);
+  if (found.error) return found;
+  return { email: found.email, name: found.name, role: found.role };
+}
+
+/* Shared by the legacy header and /auth/login. Matches on email, and on display name too
+ * so existing keys keep working. Every candidate is checked even after a match, so the
+ * response time does not reveal which account exists or where it sits in the list. */
+async function findAccount(repo, branch, identifier, password) {
   const list = await loadFacilitators(repo, branch);
   if (list.error) return { error: 'FACILITATORS_UNREADABLE' };
-  const digest = sha256hex(pass);
 
   const candidates = [];
   if (list.admin) candidates.push({ ...list.admin, role: 'admin' });
   for (const f of list.facilitators) candidates.push({ ...f, role: 'facilitator' });
 
-  // Check every entry even after a match, so the response time doesn't reveal position.
+  const id = String(identifier).trim().toLowerCase();
   let found = null;
   for (const c of candidates) {
-    const ok = c.name === name && hashesMatch(c.hash, digest);
+    const matchesId = (c.email && c.email.toLowerCase() === id) || (c.name && c.name.toLowerCase() === id);
+    const ok = matchesId && verifyPassword(password, c.hash);
     if (ok && !found) found = c;
   }
   if (!found) return { error: 'KEY_BAD' };
   if (isExpired(found)) return { error: 'KEY_EXPIRED' };
-  return { name: found.name, role: found.role };
+  return { email: found.email || found.name, name: found.name, role: found.role };
 }
 
 /* ---------- HTTP ---------- */
@@ -356,8 +460,8 @@ function corsHeaders(origin) {
     // the list being unreadable) — without it the browser hides the error body and the
     // page reports a generic network failure instead of the real reason.
     'Access-Control-Allow-Origin': origin || lastKnownOrigin || 'null',
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Facilitator-Key',
+    'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Facilitator-Key, Authorization',
     'Access-Control-Max-Age': '600',
     'Vary': 'Origin'
   };
@@ -410,9 +514,43 @@ export async function handler(event) {
     return respond(503, { error: 'CONFIG_UNAVAILABLE', message: 'Saving is briefly unavailable. Nothing was written — try again in a minute.' });
   }
   const subPath = projMatch ? (projMatch[2] || '/') : '/';
+  currentProjectKey = proj ? proj.key : null;
   if (proj) responseOrigin = proj.origin;
 
   if (method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders(responseOrigin), body: '' };
+
+  /* POST /{project}/auth/login  { email, password } -> { token, name, role, expiresAt }
+   *
+   * The only route that sees a password. Everything else takes the token it returns.
+   * When Cognito replaces this, the page keeps calling something that returns a token and
+   * the rest of the relay is untouched — which is the point of doing it this way now. */
+  if (method === 'POST' && subPath === '/auth/login') {
+    if (!proj) return respond(404, { error: 'UNKNOWN_PROJECT' });
+    const secret = process.env.AUTH_SECRET;
+    if (!secret) return respond(500, { error: 'NO_AUTH_SECRET', message: 'AUTH_SECRET is not set on the function.' });
+
+    const parsed = parseBody(event);
+    if (parsed.error) return parsed.error;
+    const email = typeof parsed.body?.email === 'string' ? parsed.body.email.trim() : '';
+    const password = typeof parsed.body?.password === 'string' ? parsed.body.password : '';
+    if (!email || !password) return respond(400, { error: 'MISSING_CREDENTIALS' });
+
+    const found = await findAccount(proj.repo, proj.branch, email, password);
+    if (found.error === 'FACILITATORS_UNREADABLE') return respond(502, { error: found.error });
+    /* One message for "no such account" and for "wrong password", so the response cannot
+     * be used to find out who has an account. */
+    if (found.error) return respond(401, { error: 'SIGNIN_FAILED', message: 'That email and password do not match an account.' });
+
+    const now = Math.floor(Date.now() / 1000);
+    const token = signToken({
+      sub: found.email, name: found.name, role: found.role,
+      project: proj.key, iat: now, exp: now + TOKEN_TTL_SECONDS
+    }, secret);
+    return respond(200, {
+      token, name: found.name, role: found.role,
+      expiresAt: new Date((now + TOKEN_TTL_SECONDS) * 1000).toISOString()
+    });
+  }
   if (!proj) return respond(404, { error: 'UNKNOWN_PROJECT' });
 
   const origin = headers['origin'];
@@ -433,8 +571,16 @@ export async function handler(event) {
 
   const who = await authenticate(headers, repo, branch);
   if (who.error === 'FACILITATORS_UNREADABLE') return respond(502, { error: 'FACILITATORS_UNREADABLE', message: 'facilitators.json could not be read. The site owner needs to check it.' });
-  if (who.error === 'KEY_EXPIRED') return respond(401, { error: 'KEY_EXPIRED', message: 'That facilitator key has expired.' });
-  if (who.error) return respond(401, { error: 'KEY_BAD', message: 'That facilitator key was not recognised.' });
+  if (who.error === 'KEY_EXPIRED') return respond(401, { error: 'KEY_EXPIRED', message: 'That account has expired.' });
+  if (who.error === 'NO_AUTH_SECRET') return respond(500, { error: 'NO_AUTH_SECRET', message: 'AUTH_SECRET is not set on the function.' });
+  /* Token failures keep their own codes so the page can tell "sign in again" from
+   * "that was refused" — an expired token means re-authenticate silently, a bad one
+   * means something is wrong. Collapsing them into KEY_BAD would make an ordinary
+   * eight-hour expiry look like a rejected credential. */
+  if (who.error === 'TOKEN_EXPIRED') return respond(401, { error: 'TOKEN_EXPIRED', message: 'Your session has expired. Sign in again.' });
+  if (who.error === 'TOKEN_WRONG_PROJECT') return respond(401, { error: 'TOKEN_WRONG_PROJECT', message: 'That session belongs to a different application.' });
+  if (who.error === 'TOKEN_BAD') return respond(401, { error: 'TOKEN_BAD', message: 'That session could not be verified. Sign in again.' });
+  if (who.error) return respond(401, { error: 'KEY_BAD', message: 'That email and password were not recognised.' });
 
   /* ----- dashboards: facilitator or admin ----- */
   if (dataMatch) {

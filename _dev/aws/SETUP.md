@@ -74,6 +74,12 @@ Configuration → Environment variables:
 | `PROJECTS_REPO` | `GitMISMO/GitMISMO.github.io` |
 | `PROJECTS_BRANCH` | `main` *(optional, defaults to `main`)* |
 | `PROJECTS_PATH` | `_internal/projects.json` |
+| `AUTH_SECRET` | a long random string, generated once |
+
+`AUTH_SECRET` signs session tokens. Generate it with `openssl rand -base64 48` and treat it
+like the GitHub token: it never leaves the function, and anyone holding it can mint a valid
+session for any account. Rotating it signs everyone out immediately, which is also how you
+revoke access urgently — a token already issued stays valid until it expires otherwise.
 
 `PROJECTS_PATH` is not the default here. The file lives under `_internal/` so that GitHub
 Pages does not publish it — Jekyll skips paths beginning with an underscore. Left at the
