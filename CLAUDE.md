@@ -413,7 +413,74 @@ Queued, roughly in order:
    chartered group with named leadership is exactly what separates the two: an
    initiative without them cannot have a release announcement written at all,
    which is the guard the drafting tool should apply.
-5. Template structural re-sync and the TPA/LBDS key merge (see deferred list). See this project's conversation history in Claude.ai for the
+5. **Single sign-on, and confidential data.** Discussed Sept 2026, nothing built.
+   The goal: one sign-in across every tool on resources.mismo.org, replacing
+   per-app facilitator passcodes, later extended to staff permissions.
+
+   **The constraint that shapes all of it:** a page on GitHub Pages is served to
+   anyone who asks for it. Sign-in can gate what a page *offers* and what the
+   relay *accepts*, but it cannot stop someone fetching the HTML. So there are two
+   different jobs:
+   - *Gate the workflow* — public page, sign-in required to save. Fine wherever the
+     underlying data is public anyway, which includes the Glossary console.
+   - *Gate the data* — public but empty page, content fetched from an authenticated
+     API after sign-in. The only version that works for anything confidential.
+
+   **Agreed first step: the Glossary console, write-protection only.** Its data is
+   already public, so a mistake during the build costs nothing, and it is where
+   passcodes are most awkward today. Prove Cognito, token verification and the
+   relay changes there before anything confidential exists.
+
+   **Plan:** AWS Cognito user pool (email username, MFA on, self-registration off,
+   invite only); app client using authorization code flow with PKCE and *no client
+   secret*, since a secret in a public page is not a secret; Cognito's hosted
+   sign-in page; groups (`facilitator`, `staff`, `finance`) which Cognito puts in
+   the token; the page keeps the token in sessionStorage and renders from it; the
+   relay fetches Cognito's public keys and verifies signature, expiry and audience
+   **server-side, never in the browser**, then reads the groups. Run passcodes and
+   tokens together during transition, then drop passcodes.
+
+   Cognito rather than Entra directly, even though MISMO uses M365 and facilitators
+   hold parent-company M365 accounts: Cognito speaks standard OIDC and can federate
+   to Entra later without touching application code, so approval from the parent
+   company is not a blocker. Worth pursuing federation in parallel — it is the only
+   way offboarding works properly, since disabling the parent account would then
+   end tool access automatically.
+
+   **Permissions stay in git**, as an `access.json` in the org site repo — people,
+   roles, and which projects each may write. Same pattern as projects.json:
+   reviewable, attributable, revertible, and changeable without directory-admin
+   rights. This is also the answer to wanting central management without merging
+   repositories: one file governs everyone while repos stay separate.
+
+6. **Confidential data — financial tracking.** Facilitator hours, contractor rates
+   and budget, replacing a Smartsheet someone currently owns. Not started, and
+   deliberately **not** the first confidential app to build.
+
+   **Why it cannot use the git-backed save model:** git commits whole files. A file
+   is one blob of bytes, identical for everyone who can read it, so a page loading
+   one facilitator's hours loads everyone's rates into that browser — displaying
+   only one row changes nothing, the data is already there. History makes it
+   permanent: a single mistaken commit stays in the repository forever. Confidential
+   data needs row-level authorization, which means a real store (DynamoDB) or
+   staying in Smartsheet, with identity applied at query time.
+
+   Three sensitivity tiers inside one app: hours (own, or team for a manager), rates
+   (own, or all for finance), budget (leadership). Authorization cannot sit at the
+   endpoint — every query must be scoped by identity.
+
+   **Keeping it in Smartsheet is a serious option and probably the better one.** It
+   already does per-row and per-column permissions and has an audit trail, and its
+   access is presumably already governed by whatever agreement covers parent-company
+   contractor data. The tools would then read it through the relay, with the relay
+   checking identity and requesting only what that person may see. Worth asking the
+   owner whether the goal is to leave Smartsheet or to stop maintaining dashboards
+   by hand — the second is achievable without moving the data.
+
+   Also needed if it is built here: an audit trail of who viewed and changed what.
+   Git gave that away for free and a database does not.
+
+7. Template structural re-sync and the TPA/LBDS key merge (see deferred list). See this project's conversation history in Claude.ai for the
 reasoning already discussed on model/effort selection (Sonnet for day-to-day
 work, Opus/Fable for architecture decisions, `opusplan` to combine both) and
 using the advisor tool or an adversarial review subagent as a second check on
