@@ -151,7 +151,16 @@
   const editId = new URLSearchParams(location.search).get('id') || '';
   let rec = null, sha = null, typeKeys = new Set(), allTypes = [], idOverride = '';
 
-  function blank(){ return { name:'', domain:'', stage:'not-started', broughtBy:'', dateLogged:'', summary:'', whyRaised:'', potentialSolutions:[], leadership:[], stakeholderTypes:[], organizations:[], updates:[] }; }
+  /* dateLogged is stamped when the record is created, not left for someone to fill in.
+     It records when MISMO logged the initiative, which is knowable now and gets guessed
+     at badly later. Local date, not toISOString(), which is UTC and lands on the wrong
+     day for anyone west of Greenwich for part of the evening. It stays editable — a
+     record being entered for something raised weeks ago should carry the real date. */
+  function todayLocal(){
+    const d = new Date(), p = n => String(n).padStart(2,'0');
+    return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate());
+  }
+  function blank(){ return { name:'', domain:'', stage:'not-started', broughtBy:'', dateLogged: todayLocal(), summary:'', whyRaised:'', potentialSolutions:[], leadership:[], stakeholderTypes:[], organizations:[], updates:[] }; }
   function currentId(){ return editId || idOverride || P.slug($('fName').value); }
 
   /* ----- form <-> record ----- */
@@ -211,7 +220,10 @@
   function showForm(){ $('upload').classList.add('hidden'); $('form').classList.remove('hidden'); }
   function loadFromObject(obj, sourceLabel){
     const v = P.validate(obj, typeKeys);
+    // Spreading the uploaded content over blank() would let an empty dateLogged in the
+    // file wipe the stamp. A record pasted in today is being logged today, so restore it.
     rec = { ...blank(), ...v.content };
+    if (!rec.dateLogged) rec.dateLogged = todayLocal();
     if (obj && typeof obj.id === 'string' && /^[a-z0-9][a-z0-9-]{0,39}$/.test(obj.id)) idOverride = obj.id;
     showForm(); fill();
     $('loadedNote').textContent = `Loaded from ${sourceLabel}. Review every field below; nothing is saved until you click Save.`; $('loadedNote').classList.remove('hidden');
@@ -272,7 +284,10 @@
       $('back').href = `potential.html?id=${encodeURIComponent(editId)}`; $('back').textContent = '← Back to the initiative';
       const r = await P.get(editId);
       if (!r.ok || !r.data) { $('upload').innerHTML = `<div class="note err">Could not load “${esc(editId)}”.</div>`; return; }
-      sha = r.sha; rec = { ...blank(), ...r.data }; delete rec.savedBy; delete rec.savedAt;
+      // Editing an existing record: do NOT inherit blank()'s stamp. A stored record with
+      // no date has an unknown one, and quietly filling in today would assert a fact
+      // nobody checked. It stays empty and editable.
+      sha = r.sha; rec = { ...blank(), dateLogged: '', ...r.data }; delete rec.savedBy; delete rec.savedAt;
       showForm(); fill();
     }
    } catch (e) {
