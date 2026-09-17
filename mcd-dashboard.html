@@ -192,6 +192,19 @@
     padding:3px 8px;
     border-radius:4px;
   }
+  /* An initiative in discovery has no chartered workgroup yet, so the tag is empty —
+     it was rendering as a bare coloured stub beside the domain line. Hidden for readers,
+     but kept visible while the page is unlocked: the element is contenteditable, and
+     display:none on an empty one would make it impossible to ever fill in. Unlocked it
+     shows a dashed outline and a prompt instead. */
+  body.locked .workgroup-tag:empty{display:none;}
+  body:not(.locked) .workgroup-tag:empty{
+    background:transparent; border:1px dashed var(--dwg); color:var(--dwg);
+    min-width:96px; opacity:.85;
+  }
+  body:not(.locked) .workgroup-tag:empty::before{
+    content:'Add workgroup'; font-weight:600; opacity:.8;
+  }
   .workgroup-tag{
     font-family:'Libre Franklin',sans-serif;
     font-weight:700;
