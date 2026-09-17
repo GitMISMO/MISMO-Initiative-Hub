@@ -299,7 +299,7 @@ async function readFile(repo, branch, path) {
  *         "name": "Jane Facilitator",
  *         "hash": "pbkdf2$...",
  *         "expires": null,
- *         "access": { "hub": "admin", "glossary": "facilitator" }
+ *         "access": { "hub": "admin", "glossary": "staff" }
  *       } } }
  *
  * Signing in is therefore global, and what you may do is per project. That is the whole
@@ -360,7 +360,11 @@ async function roleFor(email, projectKey) {
   if (!person) return { error: 'NO_ACCOUNT' };
   if (isExpired(person)) return { error: 'ACCOUNT_EXPIRED' };
   const role = person.access && person.access[projectKey];
-  if (role !== 'admin' && role !== 'facilitator') return { error: 'NO_ACCESS' };
+  /* 'facilitator' is accepted as a synonym for 'staff'. The role was renamed in Sept
+   * 2026 while access.json was still empty, so nothing needed migrating — this only
+   * covers a hand-edited file that predates the rename. */
+  if (role !== 'admin' && role !== 'staff' && role !== 'facilitator') return { error: 'NO_ACCESS' };
+  if (role === 'facilitator') return { name: person.name || email, role: 'staff' };
   return { name: person.name || email, role };
 }
 
@@ -533,7 +537,7 @@ async function roleFromFacilitators(repo, branch, email) {
   const id = String(email).trim().toLowerCase();
   const candidates = [];
   if (list.admin) candidates.push({ ...list.admin, role: 'admin' });
-  for (const f of list.facilitators) candidates.push({ ...f, role: 'facilitator' });
+  for (const f of list.facilitators) candidates.push({ ...f, role: 'staff' });
   for (const c of candidates) {
     const matches = (c.email && c.email.toLowerCase() === id) || (c.name && c.name.toLowerCase() === id);
     if (matches) {
@@ -553,7 +557,7 @@ async function findAccount(repo, branch, identifier, password) {
 
   const candidates = [];
   if (list.admin) candidates.push({ ...list.admin, role: 'admin' });
-  for (const f of list.facilitators) candidates.push({ ...f, role: 'facilitator' });
+  for (const f of list.facilitators) candidates.push({ ...f, role: 'staff' });
 
   const id = String(identifier).trim().toLowerCase();
   let found = null;

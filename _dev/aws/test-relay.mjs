@@ -398,9 +398,9 @@ const { __resetAccessCache: accessBust } = await import('./index.mjs');
 
 let accessFile = { people: {
   'jane@mismo.org': { name:'Jane Facilitator', hash: mkHash('correct-horse-battery'),
-                      access: { hub:'admin', glossary:'facilitator' } },
+                      access: { hub:'admin', glossary:'staff' } },
   'sam@mismo.org':  { name:'Sam Staff',        hash: mkHash('another-good-password'),
-                      access: { hub:'facilitator' } },
+                      access: { hub:'staff' } },
   'gone@mismo.org': { name:'Gone Person',      hash: mkHash('doesnt-matter'),
                       access: { hub:'admin' }, expires:'2020-01-01' }
 }};
@@ -418,7 +418,7 @@ projectsCacheBust(); accessBust();
 
 r = await login({ email:'jane@mismo.org', password:'correct-horse-battery' });
 ok('directory sign-in works', r.statusCode===200);
-ok('the response lists every tool the person may use', JSON.stringify(J(r).access)==='{"hub":"admin","glossary":"facilitator"}');
+ok('the response lists every tool the person may use', JSON.stringify(J(r).access)==='{"hub":"admin","glossary":"staff"}');
 const janeTok = J(r).token;
 ok('the token carries no project — one sign-in covers every tool',
    !('project' in JSON.parse(Buffer.from(janeTok.split('.')[1],'base64').toString())));

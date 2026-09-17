@@ -447,7 +447,7 @@ Queued, roughly in order:
    - `facilitators.json` moved to `_internal/` so Pages stops serving it.
    - Sign-in is GLOBAL. One token works on every tool the person has access to.
      Permissions live in `_internal/access.json` in the org site repo, per person,
-     per project, with roles `admin` or `facilitator`.
+     per project, with roles `admin` or `staff`.
    - **The token proves WHO; permissions are read on every request.** A token
      carrying its own role would keep working until it expired, so removing someone
      would take up to 8 hours. Read per request against a 30-second cache, a change
@@ -500,7 +500,7 @@ Queued, roughly in order:
    **Plan:** AWS Cognito user pool (email username, MFA on, self-registration off,
    invite only); app client using authorization code flow with PKCE and *no client
    secret*, since a secret in a public page is not a secret; Cognito's hosted
-   sign-in page; groups (`facilitator`, `staff`, `finance`) which Cognito puts in
+   sign-in page; groups (`staff`, `admin`, `finance`) which Cognito puts in
    the token; the page keeps the token in sessionStorage and renders from it; the
    relay fetches Cognito's public keys and verifies signature, expiry and audience
    **server-side, never in the browser**, then reads the groups. Run passcodes and
