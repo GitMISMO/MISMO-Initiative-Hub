@@ -78,6 +78,10 @@
     }
   ],
   "usage": {
+    "avm-testing": [
+      "AVM Provider",
+      "Mortgage Originator"
+    ],
     "ccs": [
       "AVM Provider",
       "GSE",
