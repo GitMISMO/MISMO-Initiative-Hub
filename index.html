@@ -172,21 +172,54 @@
   .init-card.expanded .detail-block-grow{flex:0 0 auto;}
   .init-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:4px;}
   .init-title{font-family:'Libre Franklin',sans-serif; font-size:15px; font-weight:700; color:var(--ink);}
-  /* The facilitator chip sits in the badge row beside the status. Deliberately quieter
-     than the status badge — grey rather than coloured — so it reads as "who owns this"
-     without competing with "is it live". Renders only when a facilitator is set; an
-     initiative without one shows nothing rather than an empty chip. */
-  .fac-chip{
-    display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
-    font-size:11px; font-weight:600; padding:3px 9px 3px 4px; border-radius:999px;
-    background:var(--slate-soft); color:var(--slate-text);
+  /* ---------- the meta strip ----------
+     One row under the title carrying the two facts every card has: where the standard is
+     in its lifecycle, and who at MISMO owns it. It sits on its own line rather than in the
+     title row because a two-line title leaves top-right tags aligned to nothing.
+
+     Colours are tokens so the dark theme redefines values rather than restating rules.
+     In light the pills carry a deepened fill AND a hairline: on a #F1F3F9 card a pale fill
+     alone measures about 1.03:1 against its background, which is invisible as a shape.
+     Dark needs neither — the bright text draws the pill on its own. */
+  :root{
+    --st-dev-bg:#E7EAF1; --st-dev-fg:#4C5468; --st-dev-bd:#D3D8E3;
+    --st-app-bg:#E7E1F4; --st-app-fg:#514080; --st-app-bd:#D4CBEC;
+    --st-pub-bg:#DBF2E9; --st-pub-fg:#0B6B59; --st-pub-bd:#BEE5D8;
+    --fac-bg:#E3EBFF;   --fac-fg:#1B34B8;   --fac-bd:#C9D8FB;
+    --mlab-fg:#4B5670;
   }
-  .fac-chip .fac-av{
+  html[data-theme="dark"]{
+    --st-dev-bg:#202536; --st-dev-fg:#A0A8C0; --st-dev-bd:transparent;
+    --st-app-bg:#251E3D; --st-app-fg:#C4A9F5; --st-app-bd:transparent;
+    --st-pub-bg:#123024; --st-pub-fg:#4ADE80; --st-pub-bd:transparent;
+    --fac-bg:#1A2745;   --fac-fg:#9AB8FF;   --fac-bd:transparent;
+    --mlab-fg:#6B7488;
+  }
+  .metastrip{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:9px 0; margin-bottom:12px;
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+  .mlab{font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--mlab-fg);}
+  .msep{width:1px; height:14px; background:var(--line); flex:0 0 auto;}
+  .tag{
+    display:inline-flex; align-items:center; height:23px; box-sizing:border-box; white-space:nowrap;
+    border-radius:999px; padding:0 10px; font-size:11.5px; font-weight:600; border:1px solid transparent;
+  }
+  .st-dev{background:var(--st-dev-bg); color:var(--st-dev-fg); border-color:var(--st-dev-bd);}
+  .st-app{background:var(--st-app-bg); color:var(--st-app-fg); border-color:var(--st-app-bd);}
+  .st-pub{background:var(--st-pub-bg); color:var(--st-pub-fg); border-color:var(--st-pub-bd);}
+  .facchip{
+    display:inline-flex; align-items:center; gap:6px; height:23px; box-sizing:border-box;
+    border-radius:999px; padding:0 10px 0 3px; font-size:11.5px; font-weight:600; white-space:nowrap;
+    background:var(--fac-bg); color:var(--fac-fg); border:1px solid var(--fac-bd);
+  }
+  .facchip .fac-av{
     width:17px; height:17px; border-radius:50%; flex:0 0 auto;
     display:flex; align-items:center; justify-content:center;
-    font-size:8.5px; font-weight:700; letter-spacing:0;
-    background:var(--brand); color:#fff;
+    font-size:8px; font-weight:700; letter-spacing:0; background:var(--brand); color:#fff;
   }
+  .facnone{font-size:11.5px; color:var(--ink-soft); font-style:italic;}
   .badge-row{display:flex; gap:6px; flex-wrap:wrap; flex:0 0 auto;}
   .status-badge{
     font-size:9.5px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap;
@@ -317,7 +350,7 @@
   function escapeHtml(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   const initiatives = [
     {
-      title: 'Mortgage Compliance Dataset', facilitator: 'Erin Bittenbender', domains: ['Mortgage Compliance'], status: 'live', href: 'mcd-dashboard.html', sample: false,
+      title: 'Mortgage Compliance Dataset', lifecycle: 'pub', facilitator: 'Erin Bittenbender', domains: ['Mortgage Compliance'], status: 'live', href: 'mcd-dashboard.html', sample: false,
       whatIsIt: 'A standard set of loan data fields and delivery file format that mortgage lenders and independent mortgage banks provide to regulators for the loan-level review portion of regulatory compliance examinations — designed to replace the Loan Examination File (LEF).',
       whyWorking: ['Manual, inconsistent reviews slow examinations down.', 'Inconsistent formats break compliance technology.', 'Lenders want to catch issues before the exam.'],
       whoBroughtIt: 'MISMO, in partnership with CSBS · sponsored by Asurity · Version 2.0 published Dec 11, 2025',
@@ -325,7 +358,7 @@
       estimatedSavings: 'No published $ estimate yet'
     },
     {
-      title: 'Common Confidence Score', facilitator: 'Kellie Stoll', domains: ['Originations', 'Valuation'], status: 'live', href: 'ccs-dashboard.html', sample: false,
+      title: 'Common Confidence Score', lifecycle: 'pub', facilitator: 'Kellie Stoll', domains: ['Originations', 'Valuation'], status: 'live', href: 'ccs-dashboard.html', sample: false,
       whatIsIt: 'A standardized probability score — the estimated likelihood an AVM value falls within ±10% of market value — that lets lenders and investors compare valuation risk across different AVM providers on one common scale, replacing inconsistent provider-specific confidence formats.',
       whyWorking: ['Inconsistent scores make AVMs hard to compare.', 'The accurate alternative is too complex to adopt.', 'A 2024 federal rule raised the stakes.'],
       whoBroughtIt: 'AVM providers &amp; the Mortgage Bankers Association, in response to the CFPB\'s AVM quality control rule — though that rule is not currently being enforced · Reached Recommendation status April 21, 2026',
@@ -333,7 +366,7 @@
       estimatedSavings: 'No published $ figure — sources describe reduced QC costs and faster valuation decisions only'
     },
     {
-      title: 'AVM Accuracy Testing Guidelines', facilitator: 'Kellie Stoll', domains: ['Valuation'], status: 'planned', href: null, sample: false,
+      title: 'AVM Accuracy Testing Guidelines', lifecycle: 'app', facilitator: 'Kellie Stoll', domains: ['Valuation'], status: 'planned', href: null, sample: false,
       whatIsIt: 'Best-practice guidelines for testing AVM accuracy, giving small and mid-sized lenders a standardized baseline to start from instead of building a testing process from scratch in-house or through an outside consultant.',
       whyWorking: ['Federal rules require regular accuracy testing to use AVMs, but smaller lenders often lack the resources to build their own process.', 'Without shared guidelines, each lender rebuilds the same testing framework independently, raising costs that get passed on to consumers.', 'Standardized practices lower the barrier to AVM adoption for smaller institutions.'],
       whoBroughtIt: 'The same AVM DWG that developed the Common Confidence Score — AVM providers, testers, and lenders, in response to the federal AVM quality control rule',
@@ -341,7 +374,7 @@
       estimatedSavings: 'No published $ figure — reduces the cost of building a testing process from scratch'
     },
     {
-      title: 'AVM Fairness Testing Guidelines', facilitator: 'Kellie Stoll', domains: ['Valuation'], status: 'planned', href: null, sample: false,
+      title: 'AVM Fairness Testing Guidelines', lifecycle: 'dev', facilitator: 'Kellie Stoll', domains: ['Valuation'], status: 'planned', href: null, sample: false,
       whatIsIt: 'Best-practice guidelines for testing AVMs for discriminatory patterns — disparate treatment and disparate impact — giving small and mid-sized lenders a baseline for fair-lending compliance without building their own testing process from scratch.',
       whyWorking: ['Federal rules require regular fairness testing to use AVMs, but smaller lenders often lack the resources to build their own process.', 'Compliance with non-discrimination laws can be resource-intensive, leading some lenders to avoid AVMs entirely rather than build a program.', 'A shared framework reduces both cost and legal risk for smaller institutions.'],
       whoBroughtIt: 'The same AVM DWG that developed the Common Confidence Score — AVM providers, testers, and lenders, in response to the federal AVM quality control rule',
@@ -349,7 +382,7 @@
       estimatedSavings: 'No published $ figure — reduces the cost of building a testing process from scratch'
     },
     {
-      title: 'Property &amp; Valuation Services Procurement Dataset', facilitator: 'Kellie Stoll', domains: ['Valuation'], status: 'planned', href: null, sample: false,
+      title: 'Property &amp; Valuation Services Procurement Dataset', lifecycle: 'pub', facilitator: 'Kellie Stoll', domains: ['Valuation'], status: 'planned', href: null, sample: false,
       whatIsIt: 'A common framework for exchanging transactional appraisal order information, built around the new terminology introduced by the FHFA\'s Uniform Mortgage Data Program (UMDP) Uniform Appraisal Dataset (UAD) 3.6 — replacing reliance on the retired Fannie Mae/Freddie Mac numbered appraisal form templates, now consolidated into the new Uniform Residential Appraisal Report (URAR).',
       whyWorking: ['UAD 3.6 retires the old Fannie/Freddie form templates, so the industry needs a new shared format for appraisal order data.', 'Without a common specification, each lender and AMC would build incompatible integrations for the same transition.', 'A shared dataset keeps procurement data consistent across lenders, AMCs, and technology providers.'],
       whoBroughtIt: 'Property and Valuation Services (PaVS) Community of Practice',
@@ -357,7 +390,7 @@
       estimatedSavings: 'No published $ figure yet'
     },
     {
-      title: 'MISMO FRAME', facilitator: 'Erin Bittenbender', domains: ['Artificial Intelligence', 'Governance'], status: 'planned', href: null, sample: false,
+      title: 'MISMO FRAME', lifecycle: 'pub', facilitator: 'Erin Bittenbender', domains: ['Artificial Intelligence', 'Governance'], status: 'planned', href: null, sample: false,
       whatIsIt: 'An AI governance toolkit — five practical artifacts (Governance Policy, AI System Inventory, and System Risk Assessment now available; Performance &amp; Fairness Testing and an Incident &amp; Change Management Log deferred) built on the NIST AI Risk Management Framework and tailored to mortgage-specific rules like ECOA, the Fair Housing Act, and SR 11-7.',
       whyWorking: ['No shared AI governance framework existed for mortgage lending specifically.', 'Fair lending laws raise real compliance risk for ungoverned AI use.', 'Industry asked MISMO to lead, rather than each lender building its own framework.'],
       whoBroughtIt: 'Industry participants seeking AI governance guidance — the idea originated with the MBA\'s Residential Board of Governors (RESBOG), which asked MISMO to lead · Released June 11, 2026 at MISMO\'s Spring Summit',
@@ -365,7 +398,7 @@
       estimatedSavings: 'No published $ figure — framed as a risk-management and compliance tool, not a cost-savings initiative'
     },
     {
-      title: 'Tri-Party eNote Bailee Agreement', facilitator: 'Kathryn Williams', domains: ['eMortgage'], status: 'live', href: 'tpa-dashboard.html', sample: false,
+      title: 'Tri-Party eNote Bailee Agreement', lifecycle: 'dev', facilitator: 'Kathryn Williams', domains: ['eMortgage'], status: 'live', href: 'tpa-dashboard.html', sample: false,
       whatIsIt: 'A MISMO-developed, consensus-based industry template for Master Bailee Agreements (MBAs) — the tri-party agreements among lender, warehouse lender, and investor that govern custody of an eNote\'s authoritative copy during the funding gap.',
       whyWorking: ['Reduced outside legal review and negotiation.', 'Reduced internal legal and onboarding effort.', 'Lower ongoing compliance and interpretation cost.'],
       whoBroughtIt: 'Snapdocs (Camelia Martin), via a MISMO DWG proposal · Discovery workshop planned for August 2026',
@@ -373,7 +406,7 @@
       estimatedSavings: '$17,000–$45,000 per agreement in avoided legal and compliance cost'
     },
     {
-      title: 'Investor Reporting Dataset', domains: ['Servicing'], status: 'planned', href: null, sample: true,
+      title: 'Investor Reporting Dataset', lifecycle: 'dev', domains: ['Servicing'], status: 'planned', href: null, sample: true,
       whatIsIt: 'A standardized dataset defining what servicers report to investors — GSEs and private-label securitizers — on loan performance, remittance, and portfolio status each cycle.',
       whyWorking: ['Inconsistent servicer-to-investor reporting formats slow reconciliation.', 'Manual reporting increases the risk of remittance errors.'],
       whoBroughtIt: 'GSEs &amp; master servicers · Started January 2024',
@@ -381,7 +414,7 @@
       estimatedSavings: '$3–$18 per loan per reporting cycle in reduced reconciliation effort'
     },
     {
-      title: 'Loan Boarding Dataset', facilitator: 'Leeann Walker', domains: ['Servicing'], status: 'live', href: 'lbds-dashboard.html', sample: false,
+      title: 'Loan Boarding Dataset', lifecycle: 'pub', facilitator: 'Leeann Walker', domains: ['Servicing'], status: 'live', href: 'lbds-dashboard.html', sample: false,
       whatIsIt: 'A standardized, extensible dataset defining the core information needed to board newly originated loans into servicing systems consistently and reliably. First published piece of MISMO\'s broader Industry Transfer of Servicing Dataset (ITSD).',
       whyWorking: ['Manual loan boarding drives up labor costs.', 'Rework and reconciliation delay activation.', 'Inconsistent data leaves borrowers with misdirected payments and account gaps.'],
       whoBroughtIt: 'GSEs, NewRez &amp; Flagstar · Started February 2023',
@@ -389,7 +422,7 @@
       estimatedSavings: '$17–$89 per loan'
     },
     {
-      title: 'Commitment File Dataset', facilitator: 'Meghan Tidgewell', domains: ['Secondary'], status: 'planned', href: null, sample: false,
+      title: 'Commitment File Dataset', lifecycle: 'dev', facilitator: 'Meghan Tidgewell', domains: ['Secondary'], status: 'planned', href: null, sample: false,
       whatIsIt: 'A standard mapping specification for the Commitment File — the artifact retail lenders include as part of a servicing transfer or loan sale, containing key information used to sell the loan and master servicing rights.',
       whyWorking: ['The Commitment File\'s structure and transmission vary widely across the industry despite its importance, causing inefficiencies, delays, and data quality challenges.', 'Each implementation requires time and energy to prepare the file to meet the transferee\'s specifications, even though the fields involved are generally the same every time.', 'A shared mapping specification gives both sides of a servicing transfer or loan sale a clear, pre-agreed starting point instead of negotiating format from scratch.'],
       whoBroughtIt: 'Rusty Emory, PrimeLending, via the Secondary Community of Practice · Kicked off at MISMO\'s Winter Summit, January 14, 2026',
@@ -397,7 +430,7 @@
       estimatedSavings: 'No published $ figure — framed as reduced manual work and faster exchange between lenders and capital markets participants'
     },
     {
-      title: 'Credit Score Implementation Guide', facilitator: 'Erin Bittenbender', domains: ['Credit Reporting'], status: 'planned', href: null, sample: false,
+      title: 'Credit Score Implementation Guide', lifecycle: 'pub', facilitator: 'Erin Bittenbender', domains: ['Credit Reporting'], status: 'planned', href: null, sample: false,
       whatIsIt: 'Implementation guidance for representing FICO 10T and VantageScore 4.0 credit scores, plus up to 36 months of prior-payment ("trended") data, within the MISMO reference model — covering both backward compatibility (v2.x through v3.x) and the newer v3.6.1/v3.6.2 enumerations.',
       whyWorking: ['An industry-wide shift to new credit reporting requirements and newer score models left the industry without a shared way to represent them.', 'Without a standard, lenders and vendors would each build their own interpretation, degrading interoperability across the MISMO reference model.', 'A shared implementation guide lets any organization on any MISMO reference model version adopt the new score models consistently.'],
       whoBroughtIt: 'MISMO Credit Reporting Community of Practice — Shawn Jobe (Credit Interlink) and Ruth Eller (Equifax) sponsored the original work request · Reached "Final" status November 25, 2025',
@@ -405,7 +438,7 @@
       estimatedSavings: 'No published $ figure — framed as reducing inconsistent, self-built interpretations across the industry'
     },
     {
-      title: 'MI Claim Submission Dataset', facilitator: 'Leeann Walker', domains: ['Mortgage Insurance'], status: 'planned', href: null, sample: false,
+      title: 'MI Claim Submission Dataset', lifecycle: 'dev', facilitator: 'Leeann Walker', domains: ['Mortgage Insurance'], status: 'planned', href: null, sample: false,
       whatIsIt: 'A MISMO-backed replacement for the EDI 260 X12 Application for Mortgage Insurance Benefits — the dataset servicers use to file claims with GSEs and private mortgage insurers after a default or foreclosure. The original spec was created by the Data Interchange Standards Association (DISA), which ceased to exist in January 2016, leaving it with no industry body maintaining it.',
       whyWorking: ['The EDI 260 spec has been unmaintained since DISA dissolved in 2016, and it carries a large number of enumerations, values, and free-form entries that need significant review to become a real standard.', 'Without a MISMO-backed replacement, at least one industry partner was already exploring building their own non-MISMO EDI 260 standard, risking further fragmentation.', 'A shared, maintained standard shortens integration, testing, and production timelines, and reduces custom integrations for filing claims.'],
       whoBroughtIt: 'Mortgage Insurance Community of Practice (Philip Law, Enact MI) — submitted October 2023; work now led by the MI Claim Submission DWG (Philip Law/Enact and Tong Zhang/Freddie Mac, Co-Chairs; Kelli Maldonado/Fannie Mae and Tina Stuart/MGIC, Co-Vice-Chairs; Facilitator Leeann Walker, MISMO)',
@@ -529,12 +562,9 @@
       <div class="init-card">
         <div class="init-top">
           <span class="init-title">${item.title}</span>
-          <div class="badge-row">
-            ${facChip(item.facilitator)}
-            <span class="status-badge ${item.status === 'planned' ? 'planned' : ''}">${item.status === 'live' ? 'Live' : 'Planned'}</span>
-            ${item.sample ? '<span class="sample-badge">Sample data</span>' : ''}
-          </div>
         </div>
+        ${metaStrip(item.lifecycle, item.facilitator,
+            item.sample ? '<span class="msep"></span><span class="sample-badge">Sample data</span>' : '')}
         <div class="detail-block detail-block-grow">
           <span class="detail-label">What is it</span>
           <p class="detail-text">${item.whatIsIt}</p>
@@ -600,10 +630,23 @@
     const d = new Date(iso); if (isNaN(d)) return '';
     return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) + ' · ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
   }
-  /* One helper for both card types, so the two can never drift apart. */
+  /* One set of helpers for both card types, so the two can never drift apart. */
+  const LIFECYCLE = { dev:{label:'In Development', cls:'st-dev'},
+                      app:{label:'In Approvals',   cls:'st-app'},
+                      pub:{label:'Published',      cls:'st-pub'} };
+
   function facChip(name){
-    if (!name) return '';
-    return `<span class="fac-chip" title="MISMO facilitator"><span class="fac-av">${escapeHtml(MismoStore.initials(name))}</span>${escapeHtml(name)}</span>`;
+    if (!name) return '<span class="facnone">Not assigned</span>';
+    return `<span class="facchip" title="MISMO facilitator"><span class="fac-av">${escapeHtml(MismoStore.initials(name))}</span>${escapeHtml(name)}</span>`;
+  }
+  function statusTag(key){
+    const s = LIFECYCLE[key];
+    return s ? `<span class="tag ${s.cls}">${s.label}</span>` : '';
+  }
+  /* status is optional: potential initiatives carry their own stage rail instead. */
+  function metaStrip(statusKey, facilitator, extra){
+    return `<div class="metastrip">${statusKey ? statusTag(statusKey) + '<span class="msep"></span>' : ''}` +
+           `<span class="mlab">Facilitator</span>${facChip(facilitator)}${extra || ''}</div>`;
   }
 
   function potentialCard(p){
@@ -614,10 +657,9 @@
     const href = `potential.html?id=${encodeURIComponent(p.id)}`;
     return `
       <div class="init-card">
-        <div class="init-top"><span class="init-title">${escapeHtml(p.name)}</span>
-          ${p.facilitator ? `<div class="badge-row">${facChip(p.facilitator)}</div>` : ''}
-        </div>
+        <div class="init-top"><span class="init-title">${escapeHtml(p.name)}</span></div>
         <div class="steps">${stages.map(s => `<div class="step ${s.key === p.stage ? 'on s-' + s.key : ''}">${escapeHtml(s.label)}</div>`).join('')}</div>
+        ${metaStrip(null, p.facilitator)}
         <div class="detail-block detail-block-grow">
           <span class="detail-label">What is it</span>
           ${p.summary ? `<p class="detail-text">${escapeHtml(p.summary)}</p>` : `<p class="detail-text" style="color:var(--ink-soft);font-style:italic">Not recorded yet.</p>`}
