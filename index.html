@@ -598,8 +598,10 @@
           <button type="button" class="expand-toggle" onclick="toggleRowDetails(this)"><span class="expand-label">See additional details</span> <span class="expand-chevron">▾</span></button>
         </div>
         <div class="expand-body">
-          ${p.whyRaised ? `<div class="detail-block"><span class="detail-label">Why it was raised</span><p class="detail-text">${escapeHtml(p.whyRaised)}</p></div>` : ''}
-          ${(p.potentialSolutions || []).length ? `<div class="detail-block"><span class="detail-label">What it could produce</span><ul class="why-bullets">${p.potentialSolutions.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+          <!-- "Why it was raised" and "What it could produce" are deliberately NOT here.
+               This card is a scannable summary sitting among several others; the long
+               narrative belongs on the initiative's own page, which "Open initiative"
+               links to. Both fields are still rendered in full there. -->
           <div class="detail-block"><span class="detail-label">Who brought it</span><p class="detail-text">${p.broughtBy ? escapeHtml(p.broughtBy) : '<span style="color:var(--ink-soft);font-style:italic">Not recorded</span>'}</p></div>
           ${p.domain ? `<div class="detail-block"><span class="detail-label">Proposed domain</span><p class="detail-text">${escapeHtml(p.domain)}</p></div>` : ''}
           <div class="detail-block"><span class="detail-label">Stakeholder engagement</span><span class="snapshot-stat">${committed} of ${orgs.length} organization${orgs.length === 1 ? '' : 's'} committed · ${interested} interested · ${(p.stakeholderTypes || []).length} type${(p.stakeholderTypes || []).length === 1 ? '' : 's'}</span></div>
