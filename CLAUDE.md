@@ -374,8 +374,42 @@ Queued, roughly in order:
    "Launch into a full dashboard" is a later step that waits for the template
    re-sync. The formatting step ("dump notes, get the format") is done in
    chat with Claude, which produces the JSON; the site never needs an API key.
-4. **Press Release Drafting Widget and Editor** — added to the list Sept 2026.
-   Not yet scoped; no design or requirements exist for it in this repo.
+4. **Press Release Drafting Widget and Editor** — scoping started Sept 2026.
+   A separate repo/tool at `tools.mismo.org/press-release`, drafting from
+   initiative dashboard data against MISMO's house template, with the VP
+   commenting on the draft and an agent revising in response.
+
+   Decided so far:
+   - The draft is a **list of blocks with stable IDs**, not one long string. A
+     comment attaches to a block, not to a character offset — offsets are
+     meaningless the moment text is rewritten, and comments silently drift onto
+     the wrong sentences. It also means only the commented block is rewritten,
+     so the agent cannot quietly "improve" paragraphs already approved.
+   - Blocks can be **approved and locked**, so a late comment cannot undo
+     wording already signed off.
+   - Quotes, names, dates, statuses and URLs are **fixed slots the agent never
+     writes or edits**. It drafts the prose around them. A fabricated attributed
+     quote in a press release is a correction, not a bug.
+   - Needs a second relay route, `POST /press-release/ask`, holding the
+     Anthropic API key server-side — same reasoning as the GitHub token. Billing
+     is a separate MISMO-owned account at platform.claude.com, not a Claude.ai
+     subscription. At a few releases a month the cost is roughly a dollar or two.
+   - Template derived from five 2026 releases; see the conversation history.
+     Eight sections, every slot marked fixed or generated.
+
+   Blocked on three fields the initiative records do not carry: the developing
+   group (name, type, mismo.org URL), workgroup leadership, and the product's
+   mismo.org URL. Leadership exists on the four built dashboards as Chair and
+   Vice-Chair cards but not on the hub records; potential initiatives already
+   have a `leadership[]` array.
+
+   **A second announcement type is still to scope: the call for participation.**
+   Issued after a workgroup is approved but before anything is published, so it
+   has no product URL, no status and no publication — the opposite shape to a
+   release announcement. Tabled Sept 2026, to come back to. Worth noting that a
+   chartered group with named leadership is exactly what separates the two: an
+   initiative without them cannot have a release announcement written at all,
+   which is the guard the drafting tool should apply.
 5. Template structural re-sync and the TPA/LBDS key merge (see deferred list). See this project's conversation history in Claude.ai for the
 reasoning already discussed on model/effort selection (Sonnet for day-to-day
 work, Opus/Fable for architecture decisions, `opusplan` to combine both) and
