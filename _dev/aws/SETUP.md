@@ -73,7 +73,14 @@ Configuration → Environment variables:
 | `GITHUB_TOKEN` | the token from 1.1 |
 | `PROJECTS_REPO` | `GitMISMO/GitMISMO.github.io` |
 | `PROJECTS_BRANCH` | `main` *(optional, defaults to `main`)* |
-| `PROJECTS_PATH` | `projects.json` *(optional, defaults to `projects.json`)* |
+| `PROJECTS_PATH` | `_internal/projects.json` |
+
+`PROJECTS_PATH` is not the default here. The file lives under `_internal/` so that GitHub
+Pages does not publish it — Jekyll skips paths beginning with an underscore. Left at the
+repository root it was fetchable at `resources.mismo.org/projects.json`, which handed out
+the list of every repository in the estate to anyone with any link to the site. The relay
+reads it through the GitHub API rather than over the web, so the location makes no
+difference to it.
 
 The list of projects lives in **`projects.json` in that repository**, not in AWS:
 
