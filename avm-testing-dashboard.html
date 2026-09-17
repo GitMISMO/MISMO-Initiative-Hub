@@ -1038,10 +1038,10 @@
             </p>
 
             <div class="savings-divider">
-              <h3 class="overview-head">Estimated per loan savings <span class="roi-sample-tag">Sample</span></h3>
+              <h3 class="overview-head">Estimated one-time cost avoided <span class="roi-sample-tag">MISMO estimate</span></h3>
               <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
-                <span class="savings-fig" contenteditable="true">—</span>
-                <span class="savings-per-loan-note">per loan, illustrative estimate</span>
+                <span class="savings-fig" contenteditable="true">$15k&ndash;$30k</span>
+                <span class="savings-per-loan-note">per lender, one-time &middot; not a published figure</span>
               </div>
               <button type="button" class="roi-link" id="roiToggle" onclick="
                 var d = document.getElementById('roiDetail');
@@ -1051,12 +1051,15 @@
                 document.getElementById('roiToggleText').textContent = open ? 'Hide breakdown' : 'View ROI breakdown';
               "><span id="roiToggleText">View ROI breakdown</span> <span class="roi-chevron" id="roiChevron">▾</span></button>
               <div class="roi-detail" id="roiDetail">
-                <div class="roi-detail-row"><span>Fewer manual AVM re-reviews</span><span>$9</span></div>
-                <div class="roi-detail-row"><span>Testing framework not built in-house</span><span>—</span></div>
-<div class="roi-detail-row"><span>Third-party testing engagements avoided</span><span>—</span></div>
-<div class="roi-detail-row total"><span>Estimated total per loan</span><span>—</span></div>
-<p class="roi-sample-note">No published figure. To be worked on separately.</p>
-</div>
+                <div class="roi-detail-row"><span>Designing a testing methodology from scratch &mdash; benchmark selection, leakage controls, temporal matching, metric definitions</span><span>120&ndash;240 hrs</span></div>
+                <div class="roi-detail-row"><span>Writing it up to a standard an examiner will accept</span><span>40&ndash;80 hrs</span></div>
+                <div class="roi-detail-row total"><span>At a loaded rate of about $80/hr</span><span>$13k&ndash;$26k</span></div>
+                <div class="roi-detail-row"><span>Rework if a self-built framework is challenged at first exam</span><span>$3k&ndash;$6k</span></div>
+                <p class="roi-sample-note"><strong>This is a MISMO estimate, not a published or surveyed figure.</strong> No vendor publishes AVM testing prices, so the number is built from assumptions rather than quotes and should be treated as an order of magnitude.</p>
+                <p class="roi-sample-note">What the guide avoids is <em>designing the method</em>, not running the tests &mdash; the federal rule requires testing either way, and that cost remains. The hourly rate assumes a model validation analyst at roughly $115k&ndash;$137k base (Glassdoor, 2026) plus about 35% for benefits and overhead, giving $75&ndash;$90 per hour.</p>
+                <p class="roi-sample-note">Deliberately not expressed per loan. Spread across a lender&rsquo;s annual volume this lands under a few dollars a loan, which understates a real one-time cost that falls hardest on the smallest institutions &mdash; the ones least able to absorb it.</p>
+              </div>
+                
             </div>
           </div>
 
