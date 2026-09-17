@@ -325,7 +325,7 @@ const login = (body, origin='https://org.github.io') => handler({
 
 r = await login({ email:'jane@mismo.org', password:'correct-horse-battery' });
 ok('sign in with email and password returns a token', r.statusCode===200 && typeof J(r).token==='string' && J(r).token.split('.').length===3);
-ok('token response carries name and role', J(r).name==='Jane Facilitator' && J(r).role==='admin');
+ok('token response carries the name and the access map', J(r).name==='Jane Facilitator' && typeof J(r).access==='object');
 const goodToken = J(r).token;
 
 r = await login({ email:'JANE@MISMO.ORG', password:'correct-horse-battery' });
@@ -355,8 +355,11 @@ r = await bearer('not.a.token');
 ok('a malformed token is refused', r.statusCode===401 && J(r).error==='TOKEN_BAD');
 
 // a token minted for one project must not work on another
+/* Tokens are global by design now. Whether this person may act on the glossary is decided
+   by the directory, not by the token, so with no directory present the glossary's own
+   facilitators.json is consulted and Jane is not in it. */
 r = await bearer(goodToken, 'glossary', '/data/mcd', 'https://glossary.example');
-ok('a hub token is REFUSED on the glossary project', r.statusCode===401 && J(r).error==='TOKEN_WRONG_PROJECT');
+ok('a signed-in person with no access to a tool is refused there', r.statusCode===403 && J(r).error==='NO_ACCESS');
 
 // expiry
 const { createHmac } = await import('node:crypto');
@@ -389,3 +392,77 @@ ok('login without AUTH_SECRET fails loudly', r.statusCode===500 && J(r).error===
 r = await bearer(goodToken);
 ok('token auth without AUTH_SECRET is refused, not bypassed', r.statusCode===500 && J(r).error==='NO_AUTH_SECRET');
 process.env.AUTH_SECRET = keep;
+
+/* ---------- one account, permissions per tool ---------- */
+const { __resetAccessCache: accessBust } = await import('./index.mjs');
+
+let accessFile = { people: {
+  'jane@mismo.org': { name:'Jane Facilitator', hash: mkHash('correct-horse-battery'),
+                      access: { hub:'admin', glossary:'facilitator' } },
+  'sam@mismo.org':  { name:'Sam Staff',        hash: mkHash('another-good-password'),
+                      access: { hub:'facilitator' } },
+  'gone@mismo.org': { name:'Gone Person',      hash: mkHash('doesnt-matter'),
+                      access: { hub:'admin' }, expires:'2020-01-01' }
+}};
+let accessStatus = 200;
+process.env.PROJECTS_REPO = 'Org/SiteConfig';
+const preDir = globalThis.fetch;
+globalThis.fetch = async (url, opts) => {
+  if (opts.method === 'GET' && url.includes('/_internal/access.json')) {
+    if (accessStatus !== 200) return { status: accessStatus, json: async()=>({}) };
+    return { status:200, json: async()=>({ sha:'a'.repeat(40), content:b64(accessFile) }) };
+  }
+  return preDir(url, opts);
+};
+projectsCacheBust(); accessBust();
+
+r = await login({ email:'jane@mismo.org', password:'correct-horse-battery' });
+ok('directory sign-in works', r.statusCode===200);
+ok('the response lists every tool the person may use', JSON.stringify(J(r).access)==='{"hub":"admin","glossary":"facilitator"}');
+const janeTok = J(r).token;
+ok('the token carries no project — one sign-in covers every tool',
+   !('project' in JSON.parse(Buffer.from(janeTok.split('.')[1],'base64').toString())));
+
+r = await bearer(janeTok, 'hub');
+ok('signed in once, the hub accepts the token', r.statusCode===200);
+r = await bearer(janeTok, 'glossary', '/data/mcd', 'https://glossary.example');
+ok('and so does the glossary, without signing in again', r.statusCode===200);
+
+r = await login({ email:'sam@mismo.org', password:'another-good-password' });
+const samTok = J(r).token;
+r = await bearer(samTok, 'hub');
+ok('a hub-only account works on the hub', r.statusCode===200);
+r = await bearer(samTok, 'glossary', '/data/mcd', 'https://glossary.example');
+ok('the same account is refused on a tool it has no access to', r.statusCode===403 && J(r).error==='NO_ACCESS');
+
+// admin-only route: Sam is a facilitator on the hub, Jane is an admin
+const adminCall = (tok) => handler({ rawPath:'/hub/facilitators', requestContext:{http:{method:'GET'}},
+  headers:{ origin:'https://org.github.io', authorization:'Bearer '+tok } });
+const ja = await adminCall(janeTok), sa = await adminCall(samTok);
+ok('role is enforced per tool, not per person', ja.statusCode !== sa.statusCode || sa.statusCode===403);
+
+// revocation without waiting for the token to expire
+accessFile = { people: { ...accessFile.people } };
+delete accessFile.people['sam@mismo.org'].access.hub;
+accessBust();
+r = await bearer(samTok, 'hub');
+ok('removing access takes effect on the NEXT request, not at token expiry',
+   r.statusCode===403 && J(r).error==='NO_ACCESS');
+
+delete accessFile.people['sam@mismo.org'];
+accessBust();
+r = await bearer(samTok, 'hub');
+ok('deleting the account refuses a token that is still cryptographically valid',
+   r.statusCode===401 && J(r).error==='NO_ACCOUNT');
+
+// expired account
+r = await login({ email:'gone@mismo.org', password:'doesnt-matter' });
+ok('an expired account cannot sign in', r.statusCode===401 && J(r).error==='SIGNIN_FAILED');
+ok('and the message is identical to a wrong password', J(r).message.includes('do not match'));
+
+// directory unreadable must not fall back to something permissive
+accessStatus = 500; accessBust();
+r = await login({ email:'jane@mismo.org', password:'correct-horse-battery' });
+ok('an unreadable directory fails loudly rather than letting anyone in',
+   r.statusCode===502 && J(r).error==='DIRECTORY_UNREADABLE');
+accessStatus = 200; accessBust();

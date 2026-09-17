@@ -64,6 +64,8 @@ const FACILITATORS_PATH = '_internal/facilitators.json';
 const PBKDF2_ITERATIONS = 210000;        // OWASP's 2023 floor for PBKDF2-HMAC-SHA256
 const PBKDF2_KEYLEN = 32;
 const TOKEN_TTL_SECONDS = 8 * 60 * 60;   // one working day, then sign in again
+const ACCESS_PATH_DEFAULT = '_internal/access.json';
+const ACCESS_CACHE_MS = 30000;           // a permission change lands within half a minute
 const FACILITATORS_CACHE_MS = 30_000;              // revocation lands within half a minute
 const PROJECTS_CACHE_MS = 60_000;                  // a newly added tool is live within a minute
 const MAX_BODY_BYTES = 1_000_000;                  // dashboards are ~10 KB; 1 MB is generous
@@ -288,6 +290,80 @@ async function readFile(repo, branch, path) {
 /* Keyed BY REPOSITORY, not global. A single shared cache across projects would let a
  * cached facilitator list from one project authenticate a request for another — the exact
  * cross-project leak a shared relay has to prevent. Found by test, not by reading. */
+/* ---------- the account directory ----------
+ *
+ * One file, in the same repository as projects.json, listing every person once:
+ *
+ *   { "people": {
+ *       "jane@mismo.org": {
+ *         "name": "Jane Facilitator",
+ *         "hash": "pbkdf2$...",
+ *         "expires": null,
+ *         "access": { "hub": "admin", "glossary": "facilitator" }
+ *       } } }
+ *
+ * Signing in is therefore global, and what you may do is per project. That is the whole
+ * point: one account, permissions set per person.
+ *
+ * Permissions are read on EVERY request rather than written into the token. A token that
+ * carried its role would keep working until it expired, so removing someone would take up
+ * to TOKEN_TTL_SECONDS to take effect. Read per request, with this cache, a change lands
+ * within ACCESS_CACHE_MS. The token proves who you are; the file decides what that means.
+ */
+const accessCache = { at: 0, value: null };
+
+export function __resetAccessCache() { accessCache.at = 0; accessCache.value = null; }
+
+async function loadAccess() {
+  const configRepo = process.env.PROJECTS_REPO;
+  if (!configRepo) return { error: 'NO_DIRECTORY' };
+  const now = Date.now();
+  if (accessCache.value && now - accessCache.at < ACCESS_CACHE_MS) return accessCache.value;
+
+  const branch = process.env.PROJECTS_BRANCH || 'main';
+  const path = process.env.ACCESS_PATH || ACCESS_PATH_DEFAULT;
+  const file = await readFile(configRepo, branch, path);
+  if (file.status === 404) return { error: 'NO_DIRECTORY' };
+  if (file.status !== 200) {
+    if (accessCache.value) return accessCache.value;   // ride out a brief GitHub failure
+    return { error: 'DIRECTORY_UNREADABLE' };
+  }
+  const people = (file.data && typeof file.data.people === 'object' && file.data.people) || {};
+  const value = { people };
+  accessCache.at = now;
+  accessCache.value = value;
+  return value;
+}
+
+/* Finds a person by email in the directory and checks their password. */
+async function findPerson(email, password) {
+  const dir = await loadAccess();
+  if (dir.error) return { error: dir.error };
+  const id = String(email).trim().toLowerCase();
+
+  // Walk every entry even after a match, so timing does not reveal which emails exist.
+  let found = null;
+  for (const [addr, person] of Object.entries(dir.people)) {
+    const ok = addr.toLowerCase() === id && person && verifyPassword(password, person.hash);
+    if (ok && !found) found = { email: addr, ...person };
+  }
+  if (!found) return { error: 'SIGNIN_FAILED' };
+  if (isExpired(found)) return { error: 'ACCOUNT_EXPIRED' };
+  return found;
+}
+
+/* What this person may do on this project, read fresh. Returns a role or null. */
+async function roleFor(email, projectKey) {
+  const dir = await loadAccess();
+  if (dir.error) return { error: dir.error };
+  const person = Object.entries(dir.people).find(([addr]) => addr.toLowerCase() === String(email).toLowerCase())?.[1];
+  if (!person) return { error: 'NO_ACCOUNT' };
+  if (isExpired(person)) return { error: 'ACCOUNT_EXPIRED' };
+  const role = person.access && person.access[projectKey];
+  if (role !== 'admin' && role !== 'facilitator') return { error: 'NO_ACCESS' };
+  return { name: person.name || email, role };
+}
+
 const facilitatorsCache = new Map();
 
 /* Test hook only, matching __resetProjectsCache. Lambda never calls it — a warm container
@@ -409,7 +485,31 @@ async function authenticate(headers, repo, branch) {
     if (!secret) return { error: 'NO_AUTH_SECRET' };
     const payload = verifyToken(auth.slice(7).trim(), secret);
     if (payload.error) return { error: payload.error };
-    if (payload.project && payload.project !== currentProjectKey) return { error: 'TOKEN_WRONG_PROJECT' };
+
+    /* A token proves WHO. What they may do here is read fresh from the directory on every
+     * request, so removing someone or changing their role takes effect within
+     * ACCESS_CACHE_MS rather than waiting out the token's lifetime.
+     *
+     * Tokens minted before the directory existed carry a project and a role; those are
+     * still honoured for their own project so nobody is signed out by this change. */
+    if (currentProjectKey) {
+      const perm = await roleFor(payload.sub, currentProjectKey);
+      if (!perm.error) return { email: payload.sub, name: perm.name, role: perm.role };
+      if (perm.error === 'NO_DIRECTORY') {
+        /* No directory yet. The token has already proved who this is, so the role comes
+         * from whichever list does exist: the token's own claim if it was minted before
+         * the change, otherwise this project's facilitators.json looked up by email. No
+         * password is involved — identity was established at sign-in. */
+        if (payload.project && payload.project === currentProjectKey && payload.role) {
+          return { email: payload.sub, name: payload.name || payload.sub, role: payload.role };
+        }
+        const legacy = await roleFromFacilitators(repo, branch, payload.sub);
+        if (legacy.error) return { error: legacy.error };
+        return { email: payload.sub, name: legacy.name, role: legacy.role };
+      }
+      if (perm.error === 'DIRECTORY_UNREADABLE') return { error: perm.error };
+      return { error: perm.error };
+    }
     return { email: payload.sub, name: payload.name || payload.sub, role: payload.role };
   }
 
@@ -423,6 +523,25 @@ async function authenticate(headers, repo, branch) {
   const found = await findAccount(repo, branch, who, pass);
   if (found.error) return found;
   return { email: found.email, name: found.name, role: found.role };
+}
+
+/* Role for an already-authenticated email, from a project's own facilitators.json.
+ * Used only while no central directory exists. */
+async function roleFromFacilitators(repo, branch, email) {
+  const list = await loadFacilitators(repo, branch);
+  if (list.error) return { error: 'FACILITATORS_UNREADABLE' };
+  const id = String(email).trim().toLowerCase();
+  const candidates = [];
+  if (list.admin) candidates.push({ ...list.admin, role: 'admin' });
+  for (const f of list.facilitators) candidates.push({ ...f, role: 'facilitator' });
+  for (const c of candidates) {
+    const matches = (c.email && c.email.toLowerCase() === id) || (c.name && c.name.toLowerCase() === id);
+    if (matches) {
+      if (isExpired(c)) return { error: 'ACCOUNT_EXPIRED' };
+      return { name: c.name, role: c.role };
+    }
+  }
+  return { error: 'NO_ACCESS' };
 }
 
 /* Shared by the legacy header and /auth/login. Matches on email, and on display name too
@@ -535,19 +654,34 @@ export async function handler(event) {
     const password = typeof parsed.body?.password === 'string' ? parsed.body.password : '';
     if (!email || !password) return respond(400, { error: 'MISSING_CREDENTIALS' });
 
-    const found = await findAccount(proj.repo, proj.branch, email, password);
-    if (found.error === 'FACILITATORS_UNREADABLE') return respond(502, { error: found.error });
-    /* One message for "no such account" and for "wrong password", so the response cannot
-     * be used to find out who has an account. */
-    if (found.error) return respond(401, { error: 'SIGNIN_FAILED', message: 'That email and password do not match an account.' });
+    /* The directory is the real source. The per-repository facilitators.json is tried only
+     * if no directory exists yet, so this works before and after the migration. */
+    let found = await findPerson(email, password);
+    let access = null;
+    if (!found.error) {
+      access = found.access || {};
+    } else if (found.error === 'NO_DIRECTORY') {
+      const legacy = await findAccount(proj.repo, proj.branch, email, password);
+      if (legacy.error === 'FACILITATORS_UNREADABLE') return respond(502, { error: legacy.error });
+      if (legacy.error) return respond(401, { error: 'SIGNIN_FAILED', message: 'That email and password do not match an account.' });
+      found = legacy;
+      access = { [proj.key]: legacy.role };
+    } else if (found.error === 'DIRECTORY_UNREADABLE') {
+      return respond(502, { error: 'DIRECTORY_UNREADABLE', message: 'The account directory could not be read.' });
+    } else {
+      /* One message for "no such account", "wrong password" and "expired", so the response
+       * cannot be used to discover who holds an account. */
+      return respond(401, { error: 'SIGNIN_FAILED', message: 'That email and password do not match an account.' });
+    }
 
     const now = Math.floor(Date.now() / 1000);
+    /* No project in the token: signing in once covers every tool the person has access to.
+     * Which tools those are is decided per request, not here. */
     const token = signToken({
-      sub: found.email, name: found.name, role: found.role,
-      project: proj.key, iat: now, exp: now + TOKEN_TTL_SECONDS
+      sub: found.email, name: found.name, iat: now, exp: now + TOKEN_TTL_SECONDS
     }, secret);
     return respond(200, {
-      token, name: found.name, role: found.role,
+      token, name: found.name, email: found.email, access,
       expiresAt: new Date((now + TOKEN_TTL_SECONDS) * 1000).toISOString()
     });
   }
@@ -580,6 +714,10 @@ export async function handler(event) {
   if (who.error === 'TOKEN_EXPIRED') return respond(401, { error: 'TOKEN_EXPIRED', message: 'Your session has expired. Sign in again.' });
   if (who.error === 'TOKEN_WRONG_PROJECT') return respond(401, { error: 'TOKEN_WRONG_PROJECT', message: 'That session belongs to a different application.' });
   if (who.error === 'TOKEN_BAD') return respond(401, { error: 'TOKEN_BAD', message: 'That session could not be verified. Sign in again.' });
+  if (who.error === 'NO_ACCESS') return respond(403, { error: 'NO_ACCESS', message: 'Your account does not have access to this application.' });
+  if (who.error === 'NO_ACCOUNT') return respond(401, { error: 'NO_ACCOUNT', message: 'That account no longer exists. Sign in again.' });
+  if (who.error === 'ACCOUNT_EXPIRED') return respond(401, { error: 'ACCOUNT_EXPIRED', message: 'That account has expired.' });
+  if (who.error === 'DIRECTORY_UNREADABLE') return respond(502, { error: 'DIRECTORY_UNREADABLE', message: 'The account directory could not be read.' });
   if (who.error) return respond(401, { error: 'KEY_BAD', message: 'That email and password were not recognised.' });
 
   /* ----- dashboards: facilitator or admin ----- */

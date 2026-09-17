@@ -75,6 +75,7 @@ Configuration → Environment variables:
 | `PROJECTS_BRANCH` | `main` *(optional, defaults to `main`)* |
 | `PROJECTS_PATH` | `_internal/projects.json` |
 | `AUTH_SECRET` | a long random string, generated once |
+| `ACCESS_PATH` | `_internal/access.json` *(optional, this is the default)* |
 
 `AUTH_SECRET` signs session tokens. Generate it with `openssl rand -base64 48` and treat it
 like the GitHub token: it never leaves the function, and anyone holding it can mint a valid
