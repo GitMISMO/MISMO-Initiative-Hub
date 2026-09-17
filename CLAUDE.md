@@ -440,6 +440,19 @@ Queued, roughly in order:
      their own project. An unreadable directory returns 502 rather than anything
      permissive.
 
+   **Gating decided Sept 2026.** Nothing on the site qualifies as genuinely hidden —
+   everything served by Pages is fetchable regardless, and no page's content is
+   sensitive. So gating means gating WRITES, not reads:
+   - Hub index, calendar and potential.html stay open to everyone, read-only.
+   - On the dashboards, the Save button and the Locked/Unlocked control are **not
+     shown at all** to someone who is not signed in. In their place: "Sign in to
+     edit". Today the controls appear and only fail on click, which is dishonest
+     about what is available.
+   - potential.html and potential-edit.html write but have no lock UI. Left as is
+     for now — they are reachable only from inside the Hub, and the relay refuses
+     the save regardless.
+   - admin.html already shows nothing before sign-in. Correct.
+
    **Still to do when Phase 2 starts:** set `AUTH_SECRET` and `ACCESS_PATH` on the
    Lambda (see `_dev/aws/SETUP.md`), create real accounts with `key-helper.html`,
    populate `access.json`, build the sign-in UI, then remove the passcode path.
