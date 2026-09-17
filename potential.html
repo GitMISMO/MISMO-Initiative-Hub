@@ -21,7 +21,7 @@
   // Follow the hub's theme choice before first paint, same key the hub uses.
   try { if (localStorage.getItem('tools:hub:theme') === 'dark') document.documentElement.setAttribute('data-theme','dark'); } catch (e) {}
 </script>
-<script src="dashboard-data.js?v=268f4f6288"></script>
+<script src="dashboard-data.js?v=5728c53b79"></script>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
   html[data-theme="dark"]{ --ink:#E8EAF0; --ink-soft:#A0A8C0; --paper:#0B0F1C; --card:#161C30; --line:#2A3150; --brand:#5B85FF; --brand-soft:#1A2745; --brand-text:#9AB8FF;
@@ -67,6 +67,14 @@
   .muted{color:var(--slate-text); font-style:italic;}
   /* Facts card: sized to its own content (align-self:start), not stretched to match the
      narrative column beside it — stretching was leaving visible dead space in the card. */
+  /* Same mark as the chip on the hub cards, sized for the facts card. Initials come from
+     the one shared helper so a name can never render as DK here and D there. */
+  .fac-row{display:inline-flex; align-items:center; gap:8px;}
+  .fac-av{
+    width:24px; height:24px; border-radius:50%; flex:0 0 auto;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:9.5px; font-weight:700; background:var(--brand); color:#fff;
+  }
   .factcard{border:1px solid var(--line); border-radius:12px; background:var(--paper); padding:16px; align-self:start;}
   .factcard .lbl:not(:first-child){margin-top:12px;}
   .factcard .fv{line-height:1.4;}
@@ -193,6 +201,10 @@
           ${(rec.potentialSolutions || []).length ? `<div class="lbl">What it could produce</div><ul class="sol">${rec.potentialSolutions.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
         </div>
         <div class="factcard">
+          <div class="lbl">MISMO facilitator</div>
+          <div class="fv">${rec.facilitator
+            ? `<span class="fac-row"><span class="fac-av">${esc(MismoStore.initials(rec.facilitator))}</span>${esc(rec.facilitator)}</span>`
+            : '<span class="muted">Not assigned</span>'}</div>
           <div class="lbl">Brought to MISMO by</div><div class="fv">${rec.broughtBy ? esc(rec.broughtBy) : '<span class="muted">Not recorded</span>'}</div>
           <div class="lbl">Date logged</div><div class="fv">${rec.dateLogged ? esc(fmtDate(rec.dateLogged)) : '<span class="muted">Not recorded</span>'}</div>
           <div class="lbl">Proposed domain</div><div class="fv">${rec.domain ? esc(rec.domain) : '<span class="muted">Not yet assigned</span>'}</div>

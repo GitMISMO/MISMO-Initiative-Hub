@@ -20,7 +20,7 @@
   // Follow the hub's theme choice before first paint, same key the hub uses.
   try { if (localStorage.getItem('tools:hub:theme') === 'dark') document.documentElement.setAttribute('data-theme','dark'); } catch (e) {}
 </script>
-<script src="dashboard-data.js?v=268f4f6288"></script>
+<script src="dashboard-data.js?v=5728c53b79"></script>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@700;800&display=swap" rel="stylesheet">
 <style>
   html[data-theme="dark"]{ --ink:#E8EAF0; --ink-soft:#A0A8C0; --paper:#0B0F1C; --card:#161C30; --line:#2A3150; --brand:#5B85FF; --brand-soft:#1A2745; --brand-text:#9AB8FF;
@@ -99,6 +99,7 @@
       </div>
       <div class="row">
         <div><label for="fBroughtBy">Brought to MISMO by</label><input type="text" id="fBroughtBy"></div>
+        <div><label for="fFacilitator">MISMO facilitator</label><input type="text" id="fFacilitator" placeholder="Name of the MISMO staff member who owns this"></div>
         <div><label for="fDate">Date logged</label><input type="date" id="fDate"></div>
       </div>
       <label for="fSummary">Summary</label><textarea id="fSummary"></textarea>
@@ -160,12 +161,13 @@
     const d = new Date(), p = n => String(n).padStart(2,'0');
     return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate());
   }
-  function blank(){ return { name:'', domain:'', stage:'not-started', broughtBy:'', dateLogged: todayLocal(), summary:'', whyRaised:'', potentialSolutions:[], leadership:[], stakeholderTypes:[], organizations:[], updates:[] }; }
+  function blank(){ return { name:'', domain:'', stage:'not-started', broughtBy:'', dateLogged: todayLocal(), facilitator:'', summary:'', whyRaised:'', potentialSolutions:[], leadership:[], stakeholderTypes:[], organizations:[], updates:[] }; }
   function currentId(){ return editId || idOverride || P.slug($('fName').value); }
 
   /* ----- form <-> record ----- */
   function fill(){
     $('fName').value = rec.name || ''; $('fDomain').value = rec.domain || ''; $('fBroughtBy').value = rec.broughtBy || '';
+    $('fFacilitator').value = rec.facilitator || '';
     $('fDate').value = rec.dateLogged || ''; $('fSummary').value = rec.summary || ''; $('fWhy').value = rec.whyRaised || '';
     $('fSolutions').value = (rec.potentialSolutions || []).join('\n');
     $('fStage').innerHTML = P.STAGES.map(s => `<option value="${s.key}" ${s.key === (rec.stage||'not-started') ? 'selected' : ''}>${esc(s.label)}</option>`).join('');
@@ -179,6 +181,7 @@
   }
   function read(){
     rec.name = $('fName').value; rec.domain = $('fDomain').value; rec.broughtBy = $('fBroughtBy').value; rec.dateLogged = $('fDate').value;
+    rec.facilitator = $('fFacilitator').value;
     rec.summary = $('fSummary').value; rec.whyRaised = $('fWhy').value; rec.stage = $('fStage').value;
     rec.potentialSolutions = $('fSolutions').value.split('\n').map(x => x.trim()).filter(Boolean);
     rec.stakeholderTypes = [...document.querySelectorAll('#typeChips input:checked')].map(i => i.value);

@@ -166,6 +166,21 @@
   .detail-block-grow{flex:1; min-height:0;}
   .init-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:4px;}
   .init-title{font-family:'Libre Franklin',sans-serif; font-size:15px; font-weight:700; color:var(--ink);}
+  /* The facilitator chip sits in the badge row beside the status. Deliberately quieter
+     than the status badge — grey rather than coloured — so it reads as "who owns this"
+     without competing with "is it live". Renders only when a facilitator is set; an
+     initiative without one shows nothing rather than an empty chip. */
+  .fac-chip{
+    display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+    font-size:11px; font-weight:600; padding:3px 9px 3px 4px; border-radius:999px;
+    background:var(--slate-soft); color:var(--slate-text);
+  }
+  .fac-chip .fac-av{
+    width:17px; height:17px; border-radius:50%; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+    font-size:8.5px; font-weight:700; letter-spacing:0;
+    background:var(--brand); color:#fff;
+  }
   .badge-row{display:flex; gap:6px; flex-wrap:wrap; flex:0 0 auto;}
   .status-badge{
     font-size:9.5px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap;
@@ -241,7 +256,7 @@
   .pot-empty{background:var(--card); border:1px dashed var(--line); border-radius:var(--radius); padding:48px 24px; text-align:center; color:var(--ink-soft); font-size:13.5px;}
   .pot-empty strong{display:block; font-family:'Libre Franklin',sans-serif; font-size:16px; color:var(--ink); margin-bottom:6px;}
 </style>
-  <script src="dashboard-data.js?v=268f4f6288"></script>
+  <script src="dashboard-data.js?v=5728c53b79"></script>
 </head>
 <body>
 
@@ -509,6 +524,7 @@
         <div class="init-top">
           <span class="init-title">${item.title}</span>
           <div class="badge-row">
+            ${facChip(item.facilitator)}
             <span class="status-badge ${item.status === 'planned' ? 'planned' : ''}">${item.status === 'live' ? 'Live' : 'Planned'}</span>
             ${item.sample ? '<span class="sample-badge">Sample data</span>' : ''}
           </div>
@@ -522,10 +538,9 @@
           <button type="button" class="expand-toggle" onclick="toggleRowDetails(this)"><span class="expand-label">See additional details</span> <span class="expand-chevron">▾</span></button>
         </div>
         <div class="expand-body">
-          <div class="detail-block">
-            <span class="detail-label">Why MISMO is working on this</span>
-            <ul class="why-bullets">${item.whyWorking.map(w => `<li>${w}</li>`).join('')}</ul>
-          </div>
+          <!-- "Why MISMO is working on this" is deliberately not here. The card is a
+               scannable summary; the reasoning lives on the initiative's own dashboard.
+               item.whyWorking is still in the data and still used there. -->
           <div class="detail-block">
             <span class="detail-label">Who brought it</span>
             <p class="detail-text">${item.whoBroughtIt}</p>
@@ -579,6 +594,12 @@
     const d = new Date(iso); if (isNaN(d)) return '';
     return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) + ' · ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
   }
+  /* One helper for both card types, so the two can never drift apart. */
+  function facChip(name){
+    if (!name) return '';
+    return `<span class="fac-chip" title="MISMO facilitator"><span class="fac-av">${escapeHtml(MismoStore.initials(name))}</span>${escapeHtml(name)}</span>`;
+  }
+
   function potentialCard(p){
     const stages = MismoStore.potential.STAGES;
     const orgs = (p.organizations || []).filter(o => (p.stakeholderTypes || []).includes(o.type));
@@ -587,7 +608,9 @@
     const href = `potential.html?id=${encodeURIComponent(p.id)}`;
     return `
       <div class="init-card">
-        <div class="init-top"><span class="init-title">${escapeHtml(p.name)}</span></div>
+        <div class="init-top"><span class="init-title">${escapeHtml(p.name)}</span>
+          ${p.facilitator ? `<div class="badge-row">${facChip(p.facilitator)}</div>` : ''}
+        </div>
         <div class="steps">${stages.map(s => `<div class="step ${s.key === p.stage ? 'on s-' + s.key : ''}">${escapeHtml(s.label)}</div>`).join('')}</div>
         <div class="detail-block detail-block-grow">
           <span class="detail-label">What is it</span>

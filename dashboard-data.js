@@ -410,9 +410,19 @@
     updates.sort(function (a, b) { return Date.parse(b.at) - Date.parse(a.at); });
     return { problems: problems, content: {
       name: name, domain: str(r.domain, 80), stage: stage, summary: str(r.summary, 4000), whyRaised: str(r.whyRaised, 4000),
-      broughtBy: str(r.broughtBy, 200), dateLogged: dateLogged, potentialSolutions: solutions, leadership: leadership, stakeholderTypes: types, organizations: orgs, updates: updates
+      broughtBy: str(r.broughtBy, 200), facilitator: str(r.facilitator, 120), dateLogged: dateLogged, potentialSolutions: solutions, leadership: leadership, stakeholderTypes: types, organizations: orgs, updates: updates
     } };
   }
+  /* Initials for the facilitator chip. Takes the first letter of the first and last
+   * word, so "Dana Kim" -> DK and a single name -> one letter. Kept here rather than in
+   * each page so the chip on a card and the chip on the full page always agree. */
+  function initialsOf(name) {
+    var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '';
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
   function potentialSlug(name) {
     return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'initiative';
   }
@@ -465,6 +475,7 @@
   window.MismoStore = {
     facilitators: { get: facilitatorsGet, put: facilitatorsPut, generatePasscode: generatePasscode, sha256Hex: sha256Hex },
     config: { get: configGet, put: configPut },
+    initials: initialsOf,
     potential: { list: potentialList, get: potentialGet, put: potentialPut, validate: potentialValidate, slug: potentialSlug,
                  STAGES: POT.STAGES, ENGAGEMENTS: POT.ENGAGEMENTS, LEADERSHIP_ROLES: POT.LEADERSHIP_ROLES,
                  stageLabel: function (k) { return potLabel(POT.STAGES, k); }, engagementLabel: function (k) { return potLabel(POT.ENGAGEMENTS, k); } },
