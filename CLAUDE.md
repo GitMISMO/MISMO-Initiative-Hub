@@ -162,13 +162,16 @@ comments, and it's the same tradeoff already live on all four real dashboards
     silently on Pages and lost every edit for months. Never reintroduce a
     storage path that can fail without telling the user.
 - **Every browser-storage key is namespaced `tools:<app>:<name>`.** All MISMO
-  tools are served from one host (`tools.mismo.org/<app>`), and browsers isolate
+  tools are served from one host (`resources.mismo.org/<app>`), and browsers isolate
   storage by ORIGIN — scheme plus host, path does NOT count. So every app on
   that host shares one `localStorage`, one `IndexedDB` and one cookie jar. An
   app that clears storage on sign-out would wipe another app's unsaved work;
   one app's keys are readable by all the others. Namespacing does not create
   isolation — nothing can, on a shared origin — but it stops collisions and
   makes a careless `clear()` obviously wrong in review.
+  The `tools:` prefix stays `tools:` even though the host is now
+  `resources.mismo.org`. It namespaces the estate, not the URL — renaming it would
+  touch 47 references for no functional gain, and the host may be renamed again.
   This app is `hub`: `tools:hub:facilitator-key`, `tools:hub:theme`,
   `tools:hub:<dashboard>:draft`, `tools:hub:<dashboard>:theme`,
   `tools:hub:calendar-filter`. A new app picks its own segment and never
@@ -375,7 +378,7 @@ Queued, roughly in order:
    re-sync. The formatting step ("dump notes, get the format") is done in
    chat with Claude, which produces the JSON; the site never needs an API key.
 4. **Press Release Drafting Widget and Editor** — scoping started Sept 2026.
-   A separate repo/tool at `tools.mismo.org/press-release`, drafting from
+   A separate repo/tool at `resources.mismo.org/press-release`, drafting from
    initiative dashboard data against MISMO's house template, with the VP
    commenting on the draft and an agent revising in response.
 

@@ -79,8 +79,8 @@ The list of projects lives in **`projects.json` in that repository**, not in AWS
 
 ```json
 {
-  "hub":      {"repo":"GitMISMO/initiative-hub",   "branch":"main", "origin":"https://tools.mismo.org"},
-  "glossary": {"repo":"GitMISMO/glossary","branch":"main", "origin":"https://tools.mismo.org"}
+  "hub":      {"repo":"GitMISMO/initiative-hub",   "branch":"main", "origin":"https://resources.mismo.org"},
+  "glossary": {"repo":"GitMISMO/glossary","branch":"main", "origin":"https://resources.mismo.org"}
 }
 ```
 
