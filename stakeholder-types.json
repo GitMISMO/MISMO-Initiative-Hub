@@ -9,6 +9,10 @@
       "name": "AVM Provider"
     },
     {
+      "key": "Bank",
+      "name": "Bank"
+    },
+    {
       "key": "Compliance Vendor",
       "name": "Compliance Vendor"
     },
