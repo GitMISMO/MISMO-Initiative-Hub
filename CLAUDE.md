@@ -237,6 +237,24 @@ comments, and it's the same tradeoff already live on all four real dashboards
   since the browser default (`middle`) looks fine on short rows but visibly
   misaligns content whenever a row's first cell wraps to two lines.
 
+## Reviewing designs
+
+**Always show a design in BOTH themes, side by side, in the same file.** Not a toggle —
+two panes. A toggle only ever shows one at a time, and the reviewer sees whichever their
+own setting produces.
+
+**Do not key a mockup's theme to `html[data-theme]`.** Claude.ai's artifact viewer sets
+that attribute on the page to match the reader's app theme, so anything keyed to it
+follows the reader rather than the file. Two rounds of review were spent on mockups that
+rendered light here and dark for the reviewer. Scope the dark rules to a container class
+instead — the viewer has no way to override a class it does not know about. Build the
+mockup CSS by taking the page's stylesheet and replacing `html[data-theme="dark"]` with
+`.dk`, then give each preview pane `.sim` or `.sim.dk`.
+
+Colours that work in one theme regularly fail in the other: a pale tint that reads as a
+pill on white disappears on a dark card, and a near-black label vanishes on it entirely.
+Both have happened here.
+
 ## Testing workflow (follow this before every deploy)
 
 1. Edit the file in `/home/claude/template-work/` (or wherever your working
