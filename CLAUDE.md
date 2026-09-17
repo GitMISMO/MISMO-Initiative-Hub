@@ -413,8 +413,43 @@ Queued, roughly in order:
    chartered group with named leadership is exactly what separates the two: an
    initiative without them cannot have a release announcement written at all,
    which is the guard the drafting tool should apply.
-5. **Single sign-on, and confidential data.** Discussed Sept 2026, nothing built.
-   The goal: one sign-in across every tool on resources.mismo.org, replacing
+5. **Single sign-on — PHASE 2, deliberately not started until Phase 1 is live.**
+
+   **Sequencing, decided Sept 2026: DNS and the Lambda first, this second.** Nothing
+   here is deployed and nothing here should be deployed until the relay is running
+   and proven on the existing passcode path. The code is written and tested, but it
+   is inert without the environment variables below.
+
+   **Already built and pushed** (98 tests passing):
+   - `POST /{project}/auth/login` takes an email and password, returns a signed
+     session token. Every other route accepts `Authorization: Bearer <token>`.
+   - Passwords are PBKDF2-HMAC-SHA256, 210,000 iterations, random per-account salt.
+     Plain SHA-256 entries are still accepted so existing passcodes work through the
+     changeover; delete that branch once every account is reissued.
+   - `facilitators.json` moved to `_internal/` so Pages stops serving it.
+   - Sign-in is GLOBAL. One token works on every tool the person has access to.
+     Permissions live in `_internal/access.json` in the org site repo, per person,
+     per project, with roles `admin` or `facilitator`.
+   - **The token proves WHO; permissions are read on every request.** A token
+     carrying its own role would keep working until it expired, so removing someone
+     would take up to 8 hours. Read per request against a 30-second cache, a change
+     lands almost immediately. Do not "optimise" this by putting the role in the
+     token.
+   - Migration works from both sides: before `access.json` has entries, sign-in falls
+     back to each project's `facilitators.json`; tokens minted earlier still work for
+     their own project. An unreadable directory returns 502 rather than anything
+     permissive.
+
+   **Still to do when Phase 2 starts:** set `AUTH_SECRET` and `ACCESS_PATH` on the
+   Lambda (see `_dev/aws/SETUP.md`), create real accounts with `key-helper.html`,
+   populate `access.json`, build the sign-in UI, then remove the passcode path.
+
+   **Later, not now:** federating to Entra so that disabling a parent-company M365
+   account ends tool access automatically. Cognito was chosen as the eventual
+   identity provider precisely because it speaks standard OIDC and can federate
+   later without touching application code — the current relay-issued token is the
+   same shape as a JWT for the same reason.
+
    per-app facilitator passcodes, later extended to staff permissions.
 
    **The constraint that shapes all of it:** a page on GitHub Pages is served to
