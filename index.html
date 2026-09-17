@@ -163,7 +163,13 @@
   @media (max-width:760px){.init-grid{grid-template-columns:1fr;}}
 
   .init-card{border:1px solid var(--line); border-radius:12px; padding:18px 19px; background:var(--paper); transition:background .2s ease, border-color .2s ease; display:flex; flex-direction:column;}
+  /* The description block stretches so that every collapsed card in a row lines its
+     buttons up at the bottom. Once a card is expanded the buttons move to the end
+     (.card-actions-row{order:10}) and that stretch has nothing left to push against —
+     it just opens a gap between the description and the details. So it only grows while
+     the card is collapsed. */
   .detail-block-grow{flex:1; min-height:0;}
+  .init-card.expanded .detail-block-grow{flex:0 0 auto;}
   .init-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:4px;}
   .init-title{font-family:'Libre Franklin',sans-serif; font-size:15px; font-weight:700; color:var(--ink);}
   /* The facilitator chip sits in the badge row beside the status. Deliberately quieter
