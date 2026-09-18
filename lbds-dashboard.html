@@ -1058,8 +1058,7 @@
             <table class="deliverables-table">
               <tr><th>Primary</th><th>Progress</th><th>Status</th><th>Completed</th></tr>
               <tr><td contenteditable="true">Dataset Spec</td><td><div class="prog-track"><div class="prog-fill deliv-progress-fill" style="width:100%; background:var(--success);"></div></div></td><td><select class="deliv-pill done deliv-status-select"><option value="notstarted">Not Started</option><option value="progress">In Progress</option><option value="done" selected>Done</option></select></td><td><div class="deliv-date-wrap"><input type="date" class="deliv-date-input" value="2025-10-01"></div></td></tr>
-              <tr><td contenteditable="true">Wrapper File</td><td><div class="prog-track"><div class="prog-fill deliv-progress-fill" style="width:55%; background:var(--amber);"></div></div></td><td><select class="deliv-pill progress deliv-status-select"><option value="notstarted">Not Started</option><option value="progress" selected>In Progress</option><option value="done">Done</option></select></td><td><div class="deliv-date-wrap"><span class="deliv-date-label">Expected Publication Date</span><input type="date" class="deliv-date-input" value="2026-08-31"></div></td></tr>
-              <tr><td contenteditable="true">Benefits One-Pager</td><td><div class="prog-track"><div class="prog-fill deliv-progress-fill" style="width:0%;"></div></div></td><td><select class="deliv-pill notstarted deliv-status-select"><option value="notstarted" selected>Not Started</option><option value="progress">In Progress</option><option value="done">Done</option></select></td><td><div class="deliv-date-wrap"><span class="deliv-date-label">Expected Publication Date</span><input type="date" class="deliv-date-input" value="2026-12-01"></div></td></tr>
+              <tr><td contenteditable="true">Wrapper File</td><td><div class="prog-track"><div class="prog-fill deliv-progress-fill" style="width:100%; background:var(--success);"></div></div></td><td><select class="deliv-pill done deliv-status-select"><option value="notstarted">Not Started</option><option value="progress">In Progress</option><option value="done" selected>Done</option></select></td><td><div class="deliv-date-wrap"><input type="date" class="deliv-date-input" value="2026-05-28"></div></td></tr>
             </table>
           </div>
 
@@ -1250,38 +1249,24 @@
   // Roadmap: lane data + task table renderer, embedded in the roster
   let laneData = {
     general: {
-      goals: ['Drive consistent LBDS adoption across servicers, lenders, regulators, and LOS/servicing systems together — adoption starts with lenders generating the file, but requires all four groups to move in step'],
+      goals: [],
       roadblocks: [],
       actions: []
     },
     servicer: {
-      goals: ['Bring Mr. Cooper into workgroup meetings', 'Confirm a servicer test use case'],
-      roadblocks: ['No contacts at Mr. Cooper yet'],
-      actions: [
-        {task:'Draft stakeholder outreach list', owner:'Leeann Walker', status:'in-progress', label:'In Progress'},
-        {task:'Reach out to Mr. Cooper', owner:'J. Prince', status:'not-started', label:'Not Started'},
-        {task:'Identify servicer to pilot', owner:'Leeann Walker', status:'blocked', label:'Blocked'}
-      ]
+      goals: [],
+      roadblocks: [],
+      actions: []
     },
     originator: {
-      goals: ['Bring Rocket Mortgage into the Servicing Transfers DWG', 'Confirm a lender test use case'],
-      roadblocks: ['No contacts at Rocket Mortgage yet'],
-      actions: [
-        {task:'Draft stakeholder outreach list', owner:'Leeann Walker', status:'in-progress', label:'In Progress'},
-        {task:'Draft benefits one-pager', owner:'J. Prince', status:'not-started', label:'Not Started'},
-        {task:'Pilot boarding file w/ 1 LOS provider', owner:'Rusty Emory', status:'in-progress', label:'In Progress'},
-        {task:'Present results to Chase, Newrez', owner:'R. Macaulay', status:'blocked', label:'Blocked'},
-        {task:'Identify lender to pilot', owner:'Leeann Walker', status:'complete', label:'Complete'}
-      ]
+      goals: [],
+      roadblocks: [],
+      actions: []
     },
     regulator: {
-      goals: ['Engage Fannie Mae in the workgroup', 'Engage Freddie Mac in the workgroup'],
+      goals: [],
       roadblocks: [],
-      actions: [
-        {task:'Draft stakeholder outreach list', owner:'Leeann Walker', status:'in-progress', label:'In Progress'},
-        {task:'Get Fannie Mae to meeting on 8/26', owner:'B. Vieaux', status:'in-progress', label:'In Progress'},
-        {task:'Get Freddie Mac to meeting on 8/26', owner:'B. Vieaux', status:'in-progress', label:'In Progress'}
-      ]
+      actions: []
     },
     // RESTRUCTURED — the former combined "LOS & Servicing Systems" lane was split so that
     // LOS Provider and Servicing System each own their own lane, per the one-lane-per-type
@@ -1586,15 +1571,15 @@
   let rosterData = [
     {type:'Mortgage Originator', org:'Chase', status:'not-planned', primaryContact:'Mary Jane Jimenez', title:'', email:'', participants:'Mary Jane Jimenez (10/17), Carey Agarwal (8/17), Joseph Smurro (7/17)', notes:'—', roadblocks:'', targetDate:''},
     {type:'Mortgage Originator', org:'Newrez', status:'not-planned', primaryContact:'Joseph Prince', title:'', email:'', participants:'Joseph Prince (15/17)', notes:'—', roadblocks:'', targetDate:''},
-    {type:'Mortgage Originator', org:'PrimeLending', status:'implemented', primaryContact:'Rusty Emory', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Rusty Emory (3/17)', notes:'Planning a test use with Loancare, waiting on a loan package', roadblocks:'', targetDate:''},
+    {type:'Mortgage Originator', org:'PrimeLending', status:'pilot-planned', primaryContact:'Rusty Emory', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Rusty Emory (3/17)', notes:'Planning a test use with Loancare, waiting on a loan package', roadblocks:'', targetDate:''},
     {type:'Regulator', org:'Fannie Mae', status:'not-planned', primaryContact:'Mark Friend', title:'', email:'', participants:'Mark Friend (12/17)', notes:'—', roadblocks:'', targetDate:''},
-    {type:'Regulator', org:'Freddie Mac', status:'impl-planned', primaryContact:'John Emans', title:'', email:'', participants:'John Emans (15/17), Tong Zhang (15/17), Prerana Karki (14/17), Anthony Burlbaugh (13/17), Victoria Morrison (7/17)', notes:'Freddie Mac is actively implementing LBDS', roadblocks:'', targetDate:''},
+    {type:'Regulator', org:'Freddie Mac', status:'pilot-planned', primaryContact:'John Emans', title:'', email:'', participants:'John Emans (15/17), Tong Zhang (15/17), Prerana Karki (14/17), Anthony Burlbaugh (13/17), Victoria Morrison (7/17)', notes:'Freddie Mac is actively implementing LBDS', roadblocks:'', targetDate:''},
     {type:'Regulator', org:'FHFA', status:'not-planned', primaryContact:'Adam Elaroussi', title:'', email:'', participants:'Adam Elaroussi (12/17)', notes:'—', roadblocks:'', targetDate:''},
     {type:'Servicer', org:'ServiceMac', status:'pilot-planned', primaryContact:'Rachael Macaulay', title:'Co-Chair, LBDS', email:'', participants:'Rachael Macaulay (15/17)', notes:'Planning a test use with PrimeLending', roadblocks:'', targetDate:''},
-    {type:'Servicer', org:'Midland Mortgage', status:'impl-planned', primaryContact:'Melissa Croom', title:'', email:'', participants:'Melissa Croom (13/17)', notes:'Tracked under parent company "MidFirst Bank" in the meeting tracker', roadblocks:'', targetDate:''},
-    {type:'Servicer', org:'Guild Mortgage', status:'implemented', primaryContact:'Rebekah Valdez-Pound', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Susan Jarvis (4/17), Rebekah Valdez-Pound (4/17)', notes:'—', roadblocks:'', targetDate:''},
+    {type:'Servicer', org:'Midland Mortgage', status:'not-planned', primaryContact:'Melissa Croom', title:'', email:'', participants:'Melissa Croom (13/17)', notes:'Tracked under parent company "MidFirst Bank" in the meeting tracker', roadblocks:'', targetDate:''},
+    {type:'Servicer', org:'Guild Mortgage', status:'not-planned', primaryContact:'Rebekah Valdez-Pound', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Susan Jarvis (4/17), Rebekah Valdez-Pound (4/17)', notes:'—', roadblocks:'', targetDate:''},
     {type:'Servicer', org:'Cenlar', status:'not-planned', primaryContact:'Nicole Mastropiero', title:'', email:'', participants:'Nicole Mastropiero (6/17)', notes:'—', roadblocks:'', targetDate:''},
-    {type:'Servicer', org:'Mr. Cooper', status:'impl-planned', primaryContact:'Pallavi Chakrabarti', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Pallavi Chakrabarti (0/17)', notes:'Real contact name found in meeting tracker — replaces earlier placeholder', roadblocks:'', targetDate:''},
+    {type:'Servicer', org:'Mr. Cooper', status:'not-planned', primaryContact:'Pallavi Chakrabarti', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Pallavi Chakrabarti (0/17)', notes:'Real contact name found in meeting tracker — replaces earlier placeholder', roadblocks:'', targetDate:''},
     {type:'Servicing System', org:'ICE', status:'not-planned', primaryContact:'Haris Jusic', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Haris Jusic (2/17)', notes:'—', roadblocks:'', targetDate:''},
     {type:'Servicing System', org:'Sagent', status:'not-planned', primaryContact:'Barbara Bowser', title:'', email:'', participants:'Barbara Bowser (15/17)', notes:'—', roadblocks:'', targetDate:''}
   ];
