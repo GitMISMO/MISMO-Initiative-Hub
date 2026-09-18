@@ -1249,23 +1249,19 @@
   // Roadmap: lane data + task table renderer, embedded in the roster
   let laneData = {
     general: {
-      goals: ['Drive consistent MCD adoption across regulators, lenders, LOS providers, and compliance vendors together — no single stakeholder group can move alone'],
+      goals: [],
       roadblocks: [],
       actions: []
     },
     regulator: {
-      goals: ['Coordinate multi-state testing and validate pass/fail consistency across compliance vendors'],
+      goals: [],
       roadblocks: [],
-      actions: [
-        {task:'Lead multi-state MCD testing across 12 states', owner:'Jeremy Windham', status:'in-progress', label:'In Progress'}
-      ]
+      actions: []
     },
     lender_3pl: {
-      goals: ['Confirm MCD readiness with LOS and compliance vendor ahead of state mandates'],
+      goals: [],
       roadblocks: [],
-      actions: [
-        {task:'Provide awareness that MCD will be mandated by select states', owner:'Jeremy Windham', status:'complete', label:'Complete'}
-      ]
+      actions: []
     },
     // Split out of the former combined "lender" lane so each stakeholder type owns exactly
     // one lane. The content above stayed with 3rd Party LOS because its goal is specifically
@@ -1279,18 +1275,14 @@
       actions: []
     },
     los: {
-      goals: ['Build and certify MCD export capability across LOS platforms'],
+      goals: [],
       roadblocks: [],
-      actions: [
-        {task:'Develop MCD export beta for Encompass 26.2 release', owner:'Brian Early', status:'in-progress', label:'In Progress'}
-      ]
+      actions: []
     },
     compliance: {
-      goals: ['Validate consistent MCD test results across compliance platforms'],
+      goals: [],
       roadblocks: [],
-      actions: [
-        {task:'Generate test results from sample MCD files', owner:'Karol Villavicencio', status:'in-progress', label:'In Progress'}
-      ]
+      actions: []
     },
     reviewer: {
       goals: [],
@@ -1569,15 +1561,15 @@
   // org here — left empty rather than inferred from notes text, since a note describing
   // a general situation isn't the same as an explicitly documented roadblock or date.
   let rosterData = [
-    {type:'Regulator', org:'CSBS Multistate Mortgage Committee (MMC) & CFPB', status:'impl-planned', primaryContact:'Kevin Byers', title:'', email:'', participants:'Kevin Byers (18/21)', notes:'Jeremy Windham (Alabama Banking Dept) is leading testing using loan data from 12 states to validate pass/fail scenarios and vendor consistency.', roadblocks:'', targetDate:''},
-    {type:'Regulator', org:'Alabama Banking Department', status:'impl-planned', primaryContact:'Jeremy Windham', title:'', email:'', participants:'Jeremy Windham (12/21)', notes:'Named as one of the states showing strong support and commitment to the MCD.', roadblocks:'', targetDate:''},
-    {type:'Regulator', org:'California Dept. of Financial Protection and Innovation', status:'impl-planned', primaryContact:'Sheila Oliver', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Sheila Oliver (2/21)', notes:'Named as a strong-support state, though the tracked contact has low meeting attendance.', roadblocks:'', targetDate:''},
-    {type:'Regulator', org:'D.C. Dept. of Insurance, Securities & Banking', status:'impl-planned', primaryContact:'Aaron Clifton', title:'', email:'', participants:'Aaron Clifton (7/21)', notes:'Named as one of the states showing strong support and commitment to the MCD.', roadblocks:'', targetDate:''},
+    {type:'Regulator', org:'CSBS Multistate Mortgage Committee (MMC) & CFPB', status:'pilot-planned', primaryContact:'Kevin Byers', title:'', email:'', participants:'Kevin Byers (18/21)', notes:'Jeremy Windham (Alabama Banking Dept) is leading testing using loan data from 12 states to validate pass/fail scenarios and vendor consistency.', roadblocks:'', targetDate:''},
+    {type:'Regulator', org:'Alabama Banking Department', status:'pilot-planned', primaryContact:'Jeremy Windham', title:'', email:'', participants:'Jeremy Windham (12/21)', notes:'Named as one of the states showing strong support and commitment to the MCD.', roadblocks:'', targetDate:''},
+    {type:'Regulator', org:'California Dept. of Financial Protection and Innovation', status:'pilot-planned', primaryContact:'Sheila Oliver', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Sheila Oliver (2/21)', notes:'Named as a strong-support state, though the tracked contact has low meeting attendance.', roadblocks:'', targetDate:''},
+    {type:'Regulator', org:'D.C. Dept. of Insurance, Securities & Banking', status:'pilot-planned', primaryContact:'Aaron Clifton', title:'', email:'', participants:'Aaron Clifton (7/21)', notes:'Named as one of the states showing strong support and commitment to the MCD.', roadblocks:'', targetDate:''},
     {type:'Lender (3rd Party LOS)', org:'DHI Mortgage Company', status:'pilot-planned', primaryContact:'John van der Horst', title:'', email:'', participants:'John van der Horst (8/21)', notes:'Lenders are supportive of the MCD but remain reliant on LOS providers, compliance vendors, and regulators.', roadblocks:'', targetDate:''},
     {type:'Lender (3rd Party LOS)', org:'Veterans United Home Loans', status:'pilot-planned', primaryContact:'Paul Daviess', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Paul Daviess (6/21)', notes:'Same shared note: supportive, but dependent on LOS/compliance vendor readiness.', roadblocks:'', targetDate:''},
     {type:'Lender (Proprietary LOS)', org:'Rocket Mortgage, LLC', status:'pilot-planned', primaryContact:'Amy Grodin', title:'', email:'', participants:'Amy Grodin (19/21), Nicholas Laudan (10/21)', notes:'Remains a committed supporter and is planning to implement.', roadblocks:'', targetDate:''},
     {type:'Lender (Proprietary LOS)', org:'United Wholesale Mortgage', status:'pilot-planned', primaryContact:'Richard Collins', title:'', email:'', participants:'Richard Collins (15/21)', notes:'Not named in the source stakeholder table — added here from real meeting-tracker engagement.', roadblocks:'', targetDate:''},
-    {type:'LOS Provider', org:'ICE Mortgage Technology', status:'impl-planned', primaryContact:'Brian Early', title:'', email:'', participants:'Brian Early (19/21)', notes:'Developing an initial beta MCD export for the Encompass 26.2 release (mid-July); first release supports a single closed-loan export.', roadblocks:'', targetDate:''},
+    {type:'LOS Provider', org:'ICE Mortgage Technology', status:'pilot-planned', primaryContact:'Brian Early', title:'', email:'', participants:'Brian Early (19/21)', notes:'Developing an initial beta MCD export for the Encompass 26.2 release (mid-July); first release supports a single closed-loan export.', roadblocks:'', targetDate:''},
     {type:'LOS Provider', org:'Wilqo', status:'pilot-planned', primaryContact:'John Haring', title:'', email:'', participants:'John Haring (12/21)', notes:'Committed to supporting the MCD; developing a single-loan workflow and evaluating bulk vs. individual request support.', roadblocks:'', targetDate:''},
     {type:'LOS Provider', org:'Vesta', status:'not-planned', primaryContact:'Derek Steele-Wass', title:'', email:'', participants:'No one met the 1/3 attendance threshold — closest: Derek Steele-Wass (0/21)', notes:'Has not participated in discussions or committed to development, though has indicated the MCD would be easy to build.', roadblocks:'', targetDate:''},
     {type:'LOS Provider', org:'Byte', status:'not-planned', primaryContact:'', title:'', email:'', participants:'No roster data on file', notes:'Lacks commitment to implement; believes ComplianceEase will continue to cover what is needed to support the MCD.', roadblocks:'Byte still not planning to implement MCD', targetDate:''},
@@ -1587,7 +1579,7 @@
     {type:'Compliance Vendor', org:'ComplianceEase', status:'implemented', primaryContact:'', title:'', email:'', participants:'No roster data on file', notes:'Actively implementing; also continues to support the legacy LEF format until regulators stop accepting it.', roadblocks:'', targetDate:''},
     {type:'Compliance Vendor', org:'Mavent (ICE)', status:'pilot-planned', primaryContact:'', title:'', email:'', participants:'No roster data on file', notes:'Confirmed plans to build ingestion and testing capability, but has not started due to other priorities.', roadblocks:'', targetDate:''},
     {type:'Compliance Vendor', org:'Alpha7X', status:'implemented', primaryContact:'Lynn Calahan', title:'Chief Data Officer', email:'', participants:'Lynn Calahan (11/21 under Alpha7X — plus 1/21 under a separate "Self-employed" entry, see Manifest Check)', notes:'Sole architect of the MCD specification.', roadblocks:'', targetDate:''},
-    {type:'Third-Party Reviewer', org:'SitusAMC', status:'implemented', primaryContact:'Sonya McCumber', title:'Workgroup Leader, MCD DWG', email:'', participants:'Sonya McCumber (20/21), Genny Dillon (16/21)', notes:'Serves as third-party loan file reviewer.', roadblocks:'', targetDate:''}
+    {type:'Third-Party Reviewer', org:'SitusAMC', status:'na', primaryContact:'Sonya McCumber', title:'Workgroup Leader, MCD DWG', email:'', participants:'Sonya McCumber (20/21), Genny Dillon (16/21)', notes:'Serves as third-party loan file reviewer.', roadblocks:'', targetDate:''}
   ];
 
   const statusOptions = [
