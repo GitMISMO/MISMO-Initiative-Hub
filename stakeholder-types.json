@@ -69,6 +69,18 @@
       "name": "Third-Party Reviewer"
     },
     {
+      "key": "Title Agent",
+      "name": "Title Agent"
+    },
+    {
+      "key": "Title Production System",
+      "name": "Title Production System"
+    },
+    {
+      "key": "Title Underwriter",
+      "name": "Title Underwriter"
+    },
+    {
       "key": "Trade Association",
       "name": "Trade Association"
     },
@@ -102,6 +114,15 @@
       "Lender (Proprietary LOS)",
       "Regulator",
       "Third-Party Reviewer"
+    ],
+    "title-order": [
+      "Document Provider",
+      "LOS Provider",
+      "Mortgage Originator",
+      "Title Agent",
+      "Title Production System",
+      "Title Underwriter",
+      "Trade Association"
     ],
     "tpa": [
       "Investors/Aggregators",

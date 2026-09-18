@@ -1,0 +1,2312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Title Order Dataset Specification — Workgroup Dashboard</title>
+<script>
+  // Set the theme before any CSS paints, so a dark-mode visitor doesn't see a flash
+  // of the light theme first. This is deliberately tiny and synchronous — it just
+  // reads localStorage and sets an attribute, nothing else — so it can't meaningfully
+  // delay first paint the way the full page script (loaded later) would.
+  (function(){
+    try {
+      var saved = localStorage.getItem('resources:hub:title-order:theme');
+      if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#101B33;
+    --ink-soft:#4B5670;
+    --paper:#F1F3F9;
+    --card:#FFFFFF;
+    --line:#E1E4EC;
+
+    --brand:#125DAB;
+    --brand-soft:#E7EFF7;
+    --brand-text:#0E4680;
+
+    --signal:#FF5A36;
+    --signal-soft:#FFEAE3;
+    --signal-text:#B8391B;
+
+    --success:#1D9A56;
+    --success-soft:#E7F7EE;
+    --success-text:#157A44;
+
+    --amber:#F2A93B;
+    --amber-soft:#FDF2DF;
+    --amber-text:#9C6B0E;
+
+    --slate:#8B94A7;
+    --slate-soft:#EEF0F4;
+    --slate-text:#5B6478;
+
+    --status-red:#C1666B; --status-red-soft:#F5E6E7; --status-red-text:#8B3D42;
+    --status-orange:#C16C33; --status-orange-soft:#F2E6DE; --status-orange-text:#834821;
+    --status-yellow:#D6B751; --status-yellow-soft:#F5EFDB; --status-yellow-text:#826217;
+    --status-green:#5B8C6C; --status-green-soft:#E3EDE6; --status-green-text:#3D5F49;
+
+    --dwg:#7C3AED;
+    --dwg-soft:#F2EBFE;
+
+    --radius:10px;
+    --shadow:0 1px 2px rgba(16,27,51,.05), 0 10px 28px rgba(16,27,51,.06);
+
+    /* Fixed-role colors: buttons/tabs/chips stay dark in both themes (--bar-bg),
+       while true section/card headers use --header-bg/--header-text, which in
+       light mode match the original dark-navy-bar-with-white-text look. */
+    --bar-bg:#101B33;
+    --header-bg:#101B33;
+    --header-bg-hover:#1C2B4D;
+    --header-text:#fff;
+    --header-text-soft:rgba(255,255,255,.65);
+  }
+
+  html[data-theme="dark"]{
+    --ink:#E8EAF0;
+    --ink-soft:#A0A8C0;
+    --paper:#0B0F1C;
+    --card:#161C30;
+    --line:#2A3150;
+
+    --brand:#5B85FF;
+    --brand-soft:#1A2745;
+    --brand-text:#9AB8FF;
+
+    --signal:#FF7A5C;
+    --signal-soft:#3D2018;
+    --signal-text:#FFA98F;
+
+    --success:#4ADE80;
+    --success-soft:#123024;
+    --success-text:#6EE7A8;
+
+    --amber:#F5B85C;
+    --amber-soft:#3D2E14;
+    --amber-text:#F0C478;
+
+    --slate:#9FA8BC;
+    --slate-soft:#202536;
+    --slate-text:#B8C0D4;
+
+    --status-red:#D9838A; --status-red-soft:#3D2226; --status-red-text:#E8A5AA;
+    --status-orange:#DA9262; --status-orange-soft:#472F1F; --status-orange-text:#EDAD82;
+    --status-yellow:#E5CB76; --status-yellow-soft:#473E1F; --status-yellow-text:#F0DA94;
+    --status-green:#8FD4A8; --status-green-soft:#1F3527; --status-green-text:#ABE8BE;
+
+    --dwg:#9D6FF0;
+    --dwg-soft:#2A2040;
+
+    --header-bg:#F1F3F9;
+    --header-bg-hover:#E3E7EF;
+    --header-text:#101B33;
+    --header-text-soft:rgba(16,27,51,.65);
+
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Libre Franklin',system-ui,sans-serif;
+    line-height:1.5;
+  }
+
+  h1,h2,h3,.display{
+    font-family:'Libre Franklin',system-ui,sans-serif;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+
+  .mono{font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums;}
+
+  a{color:var(--brand-text);}
+
+  :focus-visible{
+    outline:2.5px solid var(--brand);
+    outline-offset:2px;
+    border-radius:4px;
+  }
+
+  .wrap{
+    max-width:1180px;
+    margin:0 auto;
+    padding:0 24px 80px;
+  }
+  /* The floating-actions stack is fixed at right:20px with its own width (roughly
+     170-190px depending on button label lengths) - below the viewport width where
+     .wrap's centered content would otherwise reach that space, reserve a gutter
+     so page content never sits underneath the fixed stack. */
+  /* ---------- MASTHEAD ---------- */
+  .masthead{
+    padding:36px 24px 0;
+  }
+  .masthead-inner{
+    max-width:1180px;
+    margin:0 auto;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:24px;
+    flex-wrap:wrap;
+    padding-bottom:24px;
+    border-bottom:1px solid var(--line);
+  }
+  .eyebrow-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .eyebrow{
+    font-size:12.5px;
+    font-weight:600;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+    /* An initiative in discovery has no chartered workgroup yet, so the tag is empty —
+     it was rendering as a bare coloured stub beside the domain line. Hidden for readers,
+     but kept visible while the page is unlocked: the element is contenteditable, and
+     display:none on an empty one would make it impossible to ever fill in. Unlocked it
+     shows a dashed outline and a prompt instead. */
+  body.locked .workgroup-tag:empty{display:none;}
+  body:not(.locked) .workgroup-tag:empty{
+    background:transparent; border:1px dashed var(--dwg); color:var(--dwg);
+    min-width:96px; opacity:.85;
+  }
+  body:not(.locked) .workgroup-tag:empty::before{
+    content:'Add workgroup'; font-weight:600; opacity:.8;
+  }
+  .workgroup-tag{
+    font-family:'Libre Franklin',sans-serif;
+    font-weight:700;
+    font-size:11px;
+    letter-spacing:0.03em;
+    background:var(--dwg);
+    color:#fff;
+    padding:3px 10px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+  .title-row h1{
+    font-size:34px;
+    font-weight:700;
+  }
+  .title-row .segment-tag{
+    font-size:17px;
+    font-weight:500;
+    color:var(--ink-soft);
+    margin-left:6px;
+  }
+  .leadership{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:14px;
+  }
+  .lead-chip{
+    display:flex;
+    flex-direction:column;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:6px 12px;
+    font-size:12.5px;
+  }
+  .lead-chip .role{color:var(--ink-soft); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;}
+  .lead-chip .name{font-weight:600;}
+  .lead-chip .company{color:var(--ink-soft); font-size:11px;}
+
+    .back-to-hub{
+    font-family:'Libre Franklin',sans-serif; font-size:11px; font-weight:700;
+    color:var(--brand-text); text-decoration:none;
+    padding:7px 14px; border:1px solid var(--line); border-radius:999px; background:var(--card);
+  }
+  .back-to-hub:hover{background:var(--brand-soft); border-color:var(--brand);}
+
+  /* Floating action stack: Locked, Save, and the theme toggle live here instead of
+     inline in the masthead, so they stay reachable at the top-right of the viewport
+     no matter how far down the page you've scrolled. */
+  .floating-actions{
+    position:fixed;
+    top:20px;
+    right:20px;
+    z-index:200;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:8px;
+  }
+
+  /* ---------- LOCK MODE ---------- */
+  .lock-toggle-btn{
+    display:flex; align-items:center; gap:7px;
+    font-family:'Libre Franklin',sans-serif; font-size:12.5px; font-weight:700;
+    padding:7px 14px; border-radius:999px; border:1px solid var(--line);
+    background:var(--card); color:var(--ink-soft); cursor:pointer;
+  }
+  .lock-toggle-btn svg{flex:0 0 auto; display:block;}
+  .lock-toggle-btn:hover{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-text);}
+  .lock-toggle-btn.is-locked{background:var(--bar-bg); border-color:var(--bar-bg); color:#fff;}
+  .lock-toggle-btn.is-locked:hover{background:#000; border-color:#000;}
+
+  .theme-toggle-btn{
+    display:flex; align-items:center; justify-content:center;
+    width:32px; height:32px; border-radius:50%; border:1px solid var(--line);
+    background:var(--card); color:var(--ink-soft); cursor:pointer;
+  }
+  .theme-toggle-btn:hover{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-text);}
+  .theme-toggle-btn svg{width:16px; height:16px;}
+  .theme-toggle-btn .icon-moon{display:none;}
+  html[data-theme="dark"] .theme-toggle-btn .icon-sun{display:none;}
+  html[data-theme="dark"] .theme-toggle-btn .icon-moon{display:block;}
+
+
+  .save-toggle-btn{
+    display:flex; align-items:center; gap:7px;
+    font-family:'Libre Franklin',sans-serif; font-size:12.5px; font-weight:700;
+    padding:7px 14px; border-radius:999px; border:1px solid var(--line);
+    background:var(--card); color:var(--ink-soft); cursor:pointer;
+  }
+  .save-toggle-btn svg{flex:0 0 auto; display:block;}
+  .save-toggle-btn:hover{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-text);}
+  .save-toggle-btn.just-saved{background:var(--success); border-color:var(--success); color:var(--header-text);}
+  .save-toggle-btn.has-changes{background:var(--amber-soft); border-color:var(--amber); color:var(--amber-text);}
+  .save-toggle-btn.has-changes:hover{background:var(--amber); color:#fff;}
+  .save-toggle-btn .dirty-dot{
+    width:6px; height:6px; border-radius:50%; background:var(--amber); display:none; flex:0 0 auto;
+  }
+  .save-toggle-btn.has-changes .dirty-dot{display:block;}
+
+  body.locked [contenteditable="true"]{
+    pointer-events:none;
+  }
+  body.locked select.status-select,
+  body.locked select.crit-select,
+  body.locked select.role-select,
+  body.locked select.type-select,
+  body.locked select.deliv-status-select,
+  body.locked input.type-input,
+  body.locked input.deliv-date-input,
+  body.locked .contact-input{
+    pointer-events:none;
+    opacity:.75;
+  }
+  /* Hide the native dropdown arrow on selects while locked - a visible arrow
+     implies an interactive control, which is misleading once it's disabled. */
+  body.locked select.status-select,
+  body.locked select.crit-select,
+  body.locked select.role-select,
+  body.locked select.type-select,
+  body.locked select.deliv-status-select{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  }
+  body.locked .contact-edit-btn,
+  body.locked .icon-btn,
+  body.locked .add-task-btn,
+  body.locked .pill-add-btn,
+  body.locked .pill-remove{
+    display:none !important;
+  }
+
+  /* ---------- SECTIONS GENERIC ---------- */
+  section{margin-top:44px;}
+  .section-head{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin-bottom:0;
+    flex-wrap:wrap;
+    background:var(--header-bg); color:var(--header-text); padding:13px 20px; border-radius:var(--radius);
+  }
+  .section-head .section-note{position:absolute; right:20px; top:50%; transform:translateY(-50%); max-width:40%; text-align:right;}
+  .section-subtext{font-size:12.5px; color:var(--ink-soft); margin:8px 2px 16px;}
+  .section-head h2{font-size:19px; font-family:'Libre Franklin',sans-serif; font-weight:600; letter-spacing:.02em; text-transform:uppercase; color:var(--header-text);}
+  .section-head .section-note{color:var(--header-text-soft);}
+  .section-note{font-size:12.5px; color:var(--ink-soft);}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .kpi-label{
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-soft);
+    font-weight:600;
+  }
+  .kpi-value{font-size:24px; font-weight:700; font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums;}
+
+  .status-chip-inline{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    font-weight:600;
+    padding:5px 10px;
+    border-radius:999px;
+    width:fit-content;
+  }
+  .status-chip-inline.warn{background:var(--signal-soft); color:var(--signal-text);}
+
+  .reading-list{list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:7px;}
+  .reading-list li{font-size:12.5px;}
+  .reading-list a{text-decoration:none; font-weight:500;}
+  .reading-list a:hover{text-decoration:underline;}
+
+  .origin-line{font-size:12.5px; margin:0 0 6px; color:var(--ink-soft);}
+  .origin-line strong{color:var(--ink); font-weight:600;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+    padding:8px 10px;
+    border-bottom:1px solid var(--line);
+  }
+  td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  .done-task{text-decoration:line-through; color:var(--ink-soft);}
+
+  /* ---------- STAKEHOLDERS ---------- */
+  .stake-layout{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:18px;
+    margin-bottom:20px;
+  }
+  .stake-card{padding:18px;}
+  .stake-card h3{font-size:14px; margin-bottom:12px;}
+  .stake-card table th{font-size:13px;}
+  .card-dark-bar{
+    background:var(--header-bg); color:var(--header-text);
+    padding:13px 20px;
+    border-radius:var(--radius);
+    font-family:'Libre Franklin',sans-serif; font-weight:600; font-size:19px; letter-spacing:.02em; text-transform:uppercase;
+    margin:0 0 12px;
+    text-align:center;
+  }
+  .crit-select{
+    font-family:inherit; font-size:13px; font-weight:600; color:var(--slate-text);
+    border:1px solid transparent; background:transparent; cursor:pointer;
+    padding:3px 8px; border-radius:6px;
+  }
+  .crit-select.is-star{color:var(--amber-text); font-weight:700;}
+  .crit-select:hover{background:var(--slate-soft); border-color:var(--slate);}
+  .crit-select.is-star:hover{background:var(--brand-soft); border-color:var(--brand);}
+  .crit-select:focus{outline:none; background:var(--card); border-color:var(--brand); box-shadow:0 0 0 2px var(--brand);}
+  .role-select{
+    font-family:inherit; font-size:13px; font-weight:600; color:var(--ink);
+    border:1px solid transparent; background:transparent; cursor:pointer;
+    padding:3px 8px; border-radius:6px;
+  }
+  .role-select:hover{background:var(--brand-soft); border-color:var(--brand);}
+  .role-select:focus{outline:none; background:var(--card); border-color:var(--brand); box-shadow:0 0 0 2px var(--brand);}
+  .type-select{
+    font-family:inherit; font-size:14px; font-weight:700; color:var(--brand-text);
+    border:1px solid transparent; background:transparent; cursor:pointer;
+    padding:4px 7px; border-radius:6px; max-width:100%; min-width:185px;
+    white-space:normal; word-wrap:break-word;
+  }
+  .type-select:hover{background:var(--brand-soft); border-color:var(--brand);}
+  .type-select:focus{outline:none; background:var(--card); border-color:var(--brand); box-shadow:0 0 0 2px var(--brand);}
+  .type-input{
+    font-family:inherit; font-size:11px; border:1px solid transparent; background:transparent;
+    padding:3px 5px; border-radius:4px; width:100%; max-width:100%; box-sizing:border-box; cursor:text; color:var(--ink);
+  }
+  .type-input:hover{background:var(--brand-soft); border-color:var(--line);}
+  .type-input:focus{background:var(--card); border-color:var(--brand); outline:none; box-shadow:0 0 0 2px var(--brand);}
+
+
+
+  select.status-select{
+    font-family:'Libre Franklin',sans-serif;
+    font-size:11px;
+    font-weight:600;
+    padding:4px 8px;
+    border-radius:999px;
+    border:1.5px solid transparent;
+    cursor:pointer;
+  }
+  select.status-select:hover{border-color:currentColor;}
+  select.status-select.not-started{background:var(--slate-soft); color:var(--slate-text);}
+  select.status-select.planned{background:var(--brand-soft); color:var(--brand-text);}
+  select.status-select.in-progress{background:var(--brand-soft); color:var(--brand-text);}
+  select.status-select.blocked{background:var(--signal-soft); color:var(--signal-text);}
+  select.status-select.complete{background:var(--success-soft); color:var(--success-text);}
+
+  /* Roster/adoption status colors — scoped separately from task status colors above,
+     since both systems share the "not-started" value but should not share its color. */
+  select.status-select.roster-status.na{background:var(--slate-soft); color:var(--slate-text);}
+  select.status-select.roster-status.not-planned{background:var(--status-red-soft); color:var(--status-red-text);}
+  select.status-select.roster-status.pilot-planned{background:var(--status-orange-soft); color:var(--status-orange-text);}
+  select.status-select.roster-status.impl-planned{background:var(--status-yellow-soft); color:var(--status-yellow-text);}
+  select.status-select.roster-status.implemented{background:var(--status-green-soft); color:var(--status-green-text);}
+
+  .contact-block{display:flex; flex-direction:column; gap:2px; min-width:150px;}
+  .contact-name{font-weight:600;}
+
+  /* ---------- GENERIC EDITABLE FIELDS ---------- */
+  [contenteditable="true"]{
+    outline: none;
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin: -1px -4px;
+    cursor: text;
+  }
+  [contenteditable="true"]:hover{
+    background: var(--brand-soft);
+    box-shadow: 0 0 0 1px var(--line);
+  }
+  [contenteditable="true"]:focus{
+    background: var(--card);
+    box-shadow: 0 0 0 2px var(--brand);
+  }
+  [contenteditable="true"]:empty:before{
+    content: attr(data-placeholder);
+    color: var(--slate-text);
+    font-style: italic;
+  }
+  .deliv-date-input{
+    font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums; font-size:11px; color:var(--ink);
+    border:1px solid transparent; background:transparent; padding:3px 4px;
+    border-radius:4px; cursor:pointer; width:100%;
+  }
+  .deliv-date-input:hover{background:var(--brand-soft); border-color:var(--line);}
+  .deliv-date-input:focus{background:var(--card); border-color:var(--brand); outline:none;}
+  .deliv-date-wrap{display:flex; flex-direction:column; gap:2px;}
+  .deliv-date-label{font-size:9px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); font-weight:700;}
+  select.deliv-pill{border:none; appearance:auto; -webkit-appearance:auto;}
+  .pill-goal[contenteditable="true"], .pill-block[contenteditable="true"]{
+    padding: 5px 11px; margin: 0;
+  }
+  .pill-remove{
+    background:none; border:none; cursor:pointer; color:var(--ink-soft); opacity:.6;
+    font-size:13px; margin:0 8px 0 -4px; padding:0 2px; vertical-align:middle; line-height:1;
+  }
+  .pill-remove:hover{opacity:1; color:var(--signal-text);}
+  .pill-add-btn{
+    display:inline-flex; align-items:center; font-size:12px; font-weight:600;
+    color:var(--brand-text); background:none; border:1px dashed var(--line);
+    border-radius:999px; padding:5px 11px; cursor:pointer; font-family:inherit;
+  }
+  .pill-add-btn:hover{border-color:var(--brand); background:var(--brand-soft);}
+  .contact-name.placeholder{font-weight:500; font-style:italic; color:var(--slate-text);}
+  .contact-sub{font-size:11.5px; color:var(--ink-soft);}
+  .contact-sub.placeholder{font-style:italic; color:var(--slate-text);}
+  .contact-sub a{color:var(--brand-text); text-decoration:none;}
+  .contact-sub a:hover{text-decoration:underline;}
+  .contact-edit-btn{
+    align-self:flex-start;
+    margin-top:5px;
+    font-size:11px;
+    font-weight:600;
+    color:var(--brand-text);
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    font-family:inherit;
+  }
+  .contact-edit-btn:hover{text-decoration:underline;}
+  .contact-edit-form{display:flex; flex-direction:column; gap:5px; min-width:170px;}
+  .contact-input{
+    font-family:inherit;
+    font-size:12px;
+    padding:5px 8px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    width:100%;
+    background:var(--card);
+    color:var(--ink);
+  }
+  .contact-edit-actions{display:flex; gap:6px; margin-top:2px;}
+  .contact-save-btn{
+    font-size:11px; font-weight:700; padding:5px 10px; border-radius:6px; border:none;
+    background:var(--brand); color:#fff; cursor:pointer; font-family:inherit;
+  }
+  .contact-cancel-btn{
+    font-size:11px; font-weight:600; padding:5px 10px; border-radius:6px; border:1px solid var(--line);
+    background:var(--card); color:var(--ink-soft); cursor:pointer; font-family:inherit;
+  }
+
+  .task-icons{display:flex; gap:4px; justify-content:flex-end;}
+  .icon-btn{background:none; border:none; cursor:pointer; padding:3px 5px; font-size:13px; color:var(--ink-soft); border-radius:4px; line-height:1; font-family:inherit;}
+  .icon-btn:hover{color:var(--ink); background:var(--paper);}
+  .add-task-btn{
+    margin-top:12px;
+    font-size:12.5px; font-weight:600; color:var(--brand-text);
+    background:none; border:1px dashed var(--line); border-radius:8px;
+    padding:9px 14px; cursor:pointer; width:100%; text-align:center; font-family:inherit;
+  }
+  .add-task-btn:hover{border-color:var(--brand); background:var(--brand-soft);}
+  .task-edit-container td{background:var(--paper); padding-top:8px; padding-bottom:8px;}
+  .empty-lane-note{font-size:13px; color:var(--ink-soft); font-style:italic; padding:18px 0; text-align:center; margin:0;}
+  .primary-contact{vertical-align:top;}
+  .side-legend{padding:14px; border-top:1px solid var(--line); margin-top:4px; display:flex; flex-direction:column; gap:7px;}
+  .legend-item{display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink-soft);}
+  .legend-dot{width:9px; height:9px; border-radius:3px; display:inline-block; flex:0 0 auto;}
+
+  .roster-controls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:14px;
+  }
+  .current-type-label{font-family:'Libre Franklin',sans-serif; font-weight:700; font-size:24px; color:var(--ink);}
+
+  /* Goals/Roadblocks/Tasks strip embedded in the roster, above the org list. Reads and
+     writes the same laneData used by the (now removed) Adoption and Development Status
+     section — see ROSTER_TYPE_TO_LANE below for how a roster type maps to its lane key. */
+  .goals-strip{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; margin-bottom:24px;}
+  /* Two columns within the ONE goals-strip bubble — no nested card borders/backgrounds. */
+  .roster-command-layout{display:flex; flex-direction:column; gap:16px;}
+  #rosterLaneSidebar{padding-bottom:16px; border-bottom:1px solid var(--line);}
+
+  .search-input{
+    margin-left:auto;
+    font-family:inherit;
+    font-size:12.5px;
+    padding:7px 12px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    min-width:200px;
+    background:var(--card);
+    color:var(--ink);
+  }
+
+  .add-company-wrap{position:relative;}
+  .add-company-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:33px; height:33px; border-radius:8px;
+    background:var(--brand-soft); color:var(--brand-text); border:none; cursor:pointer;
+    font-size:18px; font-weight:600; line-height:1; padding:0;
+  }
+  .add-company-btn:hover{background:var(--brand); color:#fff;}
+  .add-company-popover{
+    position:absolute; top:calc(100% + 8px); right:0; z-index:20; width:260px;
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:14px; box-shadow:var(--shadow);
+  }
+  .add-company-field-label{display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin:0 0 5px;}
+  .add-company-name-input, .add-company-type-select{
+    font-family:inherit; font-size:12.5px; color:var(--ink); background:var(--paper);
+    border:1px solid var(--line); border-radius:6px; padding:7px 9px; width:100%; margin-bottom:11px;
+  }
+  .add-company-error{font-size:11.5px; color:var(--status-red-text); margin:-4px 0 10px;}
+  .add-company-actions{display:flex; gap:8px; justify-content:flex-end;}
+  .add-company-cancel-btn{
+    font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-soft);
+    background:none; border:1px solid var(--line); border-radius:6px; padding:6px 12px; cursor:pointer;
+  }
+  .add-company-confirm-btn{
+    font-family:inherit; font-size:12px; font-weight:600; color:#fff;
+    background:var(--brand); border:none; border-radius:6px; padding:6px 12px; cursor:pointer;
+  }
+
+  /* ---------- ROSTER: TYPE SIDEBAR + EXPANDABLE LIST ---------- */
+  .roster-layout{display:grid; grid-template-columns:250px 1fr; gap:14px;}
+  @media (max-width:760px){ .roster-layout{grid-template-columns:1fr;} }
+  .roster-side-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:6px; align-self:start;}
+  .roster-side-label{font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); padding:12px 14px 6px;}
+  .type-row{padding:10px 14px; border-bottom:1px solid var(--line); cursor:pointer;}
+  .type-row:last-of-type{border-bottom:none;}
+  .type-row:hover{background:var(--paper);}
+  .type-row.active{background:var(--brand-soft);}
+  .type-row-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; gap:8px;}
+  .type-name{font-size:12.5px; font-weight:700;}
+  .type-count{font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums; font-size:11px; color:var(--ink-soft); flex:0 0 auto;}
+  .mini-bar{display:flex; height:6px; border-radius:3px; overflow:hidden; background:var(--slate-soft);}
+  .mini-seg{height:100%;}
+
+  .roster-list{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:4px;}
+  .list-row{border-bottom:1px solid var(--line);}
+  .list-row.has-roadblock{background:var(--status-orange-soft); border:1.5px solid var(--status-orange);}
+  .list-row.has-roadblock .list-drawer{background:var(--status-orange-soft);}
+  .list-row:last-child{border-bottom:none;}
+  .list-row-summary{display:flex; align-items:center; gap:14px; padding:13px 16px; cursor:pointer;}
+  .list-row-summary:hover{background:var(--paper);}
+  .expand-caret{color:var(--ink-soft); flex:0 0 auto; transition:transform .15s ease;}
+  .list-row.expanded .expand-caret{transform:rotate(90deg);}
+  .list-org-name-wrap{display:flex; align-items:center; gap:7px; flex:1; min-width:0;}
+  .list-org-name{font-family:'Libre Franklin',sans-serif; font-weight:700; font-size:13.5px;}
+  .roadblock-flag{
+    font-size:9.5px;
+    background:var(--signal-soft);
+    color:var(--signal-text);
+    padding:2px 6px;
+    border-radius:999px;
+    font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums;
+    font-weight:600;
+  }
+
+  .list-drawer{display:none; padding:4px 16px 18px 46px; background:var(--paper);}
+  .list-row.expanded .list-drawer{display:block;}
+  .drawer-type-tag{
+    font-family:inherit; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--ink-soft); background:var(--card); border:1px solid var(--line); border-radius:6px;
+    padding:4px 9px; margin-bottom:10px; width:100%; max-width:none;
+  }
+  .card-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+  @media (max-width:760px){ .card-grid{grid-template-columns:1fr;} }
+  .mini-card{background:var(--card); border:1px solid var(--line); border-radius:9px; padding:13px 14px;}
+  .mini-card.flagged{background:var(--status-orange-soft); border-color:var(--status-orange-soft);}
+  .mini-card-label{font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:9px;}
+  .mini-card.flagged .mini-card-label{color:var(--status-orange-text);}
+  .roadblock-text{font-size:12.5px;}
+  .roadblock-text.empty{font-style:italic; color:var(--ink-soft);}
+  .mini-card.flagged .roadblock-text{color:var(--status-orange-text); font-weight:500;}
+  .date-label{font-size:11px; color:var(--ink-soft); margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
+  .date-input-mini{font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums; font-size:12px; padding:5px 8px; border:1px solid var(--line); border-radius:5px; background:var(--card); color:var(--ink); margin-top:5px; width:100%;}
+  .notes-text{font-size:12px; color:var(--ink-soft); font-style:italic; margin-top:9px; padding-top:9px; border-top:1px solid var(--line);}
+  .participant-chip{display:inline-block; background:var(--brand-soft); color:var(--brand-text); font-size:11px; padding:4px 10px; border-radius:999px; margin:0 5px 5px 0;}
+
+  /* ---------- GOVERNANCE ---------- */
+  .gov-layout{
+    display:grid;
+    grid-template-columns:1.5fr 1fr;
+    gap:18px;
+  }
+  @media (max-width:900px){ .gov-layout{grid-template-columns:1fr;} }
+  .gov-card{padding:18px;}
+  .leaderboard-row{
+    display:grid;
+    grid-template-columns:110px 1fr 46px;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+    padding:5px 0;
+  }
+  .leaderboard-row .who{font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .leaderboard-track{background:var(--paper); border-radius:4px; height:9px;}
+  .leaderboard-fill{background:var(--brand); height:100%; border-radius:4px;}
+  .leaderboard-val{text-align:right; font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums; color:var(--ink-soft);}
+
+  .fac-hours{
+    text-align:center;
+    padding:24px 10px 14px;
+  }
+  .fac-hours .kpi-value{font-size:38px;}
+  .recon-note{
+    margin-top:14px;
+    font-size:11.8px;
+    color:var(--signal-text);
+    background:var(--signal-soft);
+    padding:10px 12px;
+    border-radius:8px;
+    text-align:left;
+  }
+  .updated-line{font-size:11.5px; color:var(--ink-soft); margin-top:10px;}
+
+  /* ---------- WORK PRODUCT OVERVIEW (true-look styling) ---------- */
+  .overview-shell{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    background:var(--paper);
+  }
+  .overview-bar{
+    background:var(--header-bg);
+    color:var(--header-text);
+    text-align:center;
+    font-family:'Libre Franklin',sans-serif;
+    font-weight:600;
+    font-size:19px;
+    text-transform:uppercase;
+    letter-spacing:.02em;
+    padding:13px 16px;
+  }
+  .overview-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    padding:18px;
+  }
+  @media (max-width:900px){ .overview-grid{grid-template-columns:1fr;} }
+  .overview-col{display:flex; flex-direction:column; gap:14px;}
+  .overview-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:16px 18px;
+    box-shadow:none;
+  }
+  .overview-head{
+    font-size:14px;
+    font-weight:700;
+    color:var(--ink);
+    text-decoration:underline;
+    margin:0 0 10px;
+    display:inline-block;
+  }
+  .overview-card p{font-size:13px; color:var(--ink); margin:0 0 8px;}
+  .overview-card p:last-child{margin-bottom:0;}
+
+  .why-list{margin:0; padding-left:19px; font-size:13px;}
+  .why-list li{margin-bottom:10px;}
+  .why-list li:last-child{margin-bottom:0;}
+
+  .video-embed-wrap{
+    position:relative; width:100%; padding-bottom:56.25%; height:0; overflow:hidden;
+  }
+  .video-embed-wrap iframe{
+    position:absolute; top:0; left:0; width:100%; height:100%; border:0;
+  }
+
+  .restore-banner{
+    max-width:1180px; margin:14px auto 0; padding:12px 20px;
+    background:var(--amber-soft); border:1px solid var(--amber); border-radius:var(--radius);
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .restore-banner-text{font-size:13px; color:var(--amber-text); font-weight:600;}
+  .restore-banner-actions{display:flex; gap:8px; flex:0 0 auto;}
+  .restore-btn{
+    font-family:'Libre Franklin',sans-serif; font-size:12.5px; font-weight:700; color:var(--header-text);
+    background:var(--amber); border:none; border-radius:999px; padding:7px 16px; cursor:pointer;
+  }
+  .restore-btn:hover{background:var(--amber-text);}
+  .dismiss-restore-btn{
+    font-family:'Libre Franklin',sans-serif; font-size:12.5px; font-weight:600; color:var(--amber-text);
+    background:none; border:1px solid var(--amber); border-radius:999px; padding:7px 16px; cursor:pointer;
+  }
+  .dismiss-restore-btn:hover{background:var(--amber-soft);}
+
+  .meeting-schedule-wrap{
+    max-width:1180px; margin:22px auto 0; padding:0 24px;
+  }
+  .meeting-banner{
+    display:grid; grid-template-columns:repeat(7, 1fr); align-items:stretch;
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:0; overflow:hidden;
+  }
+  .meeting-banner-label{
+    background:var(--header-bg); color:var(--header-text); font-family:'Libre Franklin',sans-serif;
+    font-weight:600; font-size:19px; padding:16px 18px;
+    display:flex; align-items:center; justify-content:center; letter-spacing:.02em; min-width:0;
+  }
+  .meeting-tile-row{display:contents;}
+  .meeting-tile{
+    padding:14px 18px; border-right:1px solid var(--line); min-width:0;
+    display:flex; flex-direction:column; gap:3px;
+  }
+  .meeting-tile:last-of-type{border-right:none;}
+  .meeting-tile-value{font-size:12px; font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums; color:var(--ink); overflow-wrap:anywhere; word-break:break-word;}
+  a.meeting-tile-value{text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:2px; cursor:pointer;}
+  a.meeting-tile-value:hover{color:var(--brand-text); text-decoration-color:var(--brand-text);}
+  .meeting-tile-label-caption{
+    font-size:11.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--ink-soft); border-bottom:1.5px solid var(--line); padding-bottom:5px; margin-bottom:6px; display:block;
+  }
+  .meeting-banner-btn{
+    font-family:'Libre Franklin',sans-serif; font-size:15px; font-weight:700; min-width:0;
+    color:var(--header-text); background:var(--header-bg); border:none; padding:16px 18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px; text-align:center; white-space:normal;
+  }
+  .meeting-banner-btn svg{flex:0 0 auto;}
+  .meeting-banner-btn:hover{background:var(--header-bg-hover);}
+
+  .meeting-tile.sponsor-tile{align-items:flex-start;}
+  .sponsor-tile-logo{height:34px; width:auto; max-width:100%; object-fit:contain; align-self:center; margin-top:6px; background:#fff; padding:6px 12px; border-radius:6px;}
+  /* MISMO-sponsored groups carry the wordmark itself, in two variants: the colour mark
+     on light, the white mark on dark. The single-file version needed a white chip behind
+     it so the blue mark stayed legible on a dark tile; with a white variant available
+     that chip is no longer needed and the mark sits directly on the tile. Third-party
+     sponsor logos keep the chip, since we cannot supply a variant for someone else's
+     brand. */
+  .sponsor-logo-white{display:none;}
+  html[data-theme="dark"] .sponsor-logo-colour{display:none;}
+  html[data-theme="dark"] .sponsor-logo-white{display:block;}
+  .sponsor-logo-colour, .sponsor-logo-white{background:transparent; padding:0; height:28px; margin-top:8px;}
+  @media (max-width:900px){
+    .meeting-banner{grid-template-columns:repeat(3, 1fr);}
+    .meeting-banner-label{padding:12px 18px;}
+    .meeting-tile{border-right:none; border-bottom:1px solid var(--line);}
+    .meeting-banner-btn{padding:12px 18px;}
+  }
+  @media (max-width:560px){
+    .meeting-banner{grid-template-columns:repeat(2, 1fr);}
+  }
+
+  .savings-placeholder{text-align:center; padding:10px 0 4px;}
+  .savings-placeholder .fig{font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums; font-size:30px; font-weight:700; color:var(--ink);}
+  .savings-placeholder .note{font-size:11.5px; color:var(--ink-soft); margin:4px 0 12px;}
+
+  .roi-link{
+    display:inline-flex; align-items:center; gap:5px; text-align:left; font-size:12px; font-weight:600;
+    color:var(--brand-text); text-decoration:none; margin-top:8px; cursor:pointer; background:none; border:none; padding:0; font-family:inherit;
+  }
+  .roi-link:hover{text-decoration:underline;}
+  .roi-chevron{font-size:10px; transition:transform .15s ease;}
+  .roi-chevron.open{transform:rotate(180deg);}
+
+  .video-frame-card{padding:0; overflow:hidden;}
+  .video-frame-head{background:var(--paper); padding:9px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); border-bottom:1px solid var(--line);}
+
+  .savings-divider{border-top:1px solid var(--line); margin-top:14px; padding-top:14px;}
+  .savings-fig{font-family:'Libre Franklin',sans-serif; font-size:26px; font-weight:700; color:var(--ink);}
+  .savings-per-loan-note{font-size:11.5px; color:var(--ink-soft);}
+  .roi-sample-tag{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--slate-text); background:var(--slate-soft); padding:2px 7px; border-radius:5px; margin-left:8px;}
+  .roi-detail{display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);}
+  .roi-detail.open{display:block;}
+  .roi-detail-row{display:flex; justify-content:space-between; font-size:12px; padding:5px 0;}
+  .roi-detail-row.total{border-top:1px solid var(--line); margin-top:4px; padding-top:8px; font-weight:700;}
+  .roi-sample-note{font-size:11px; color:var(--ink-soft); font-style:italic; margin:10px 0 8px;}
+
+  .deliverables-table{font-size:12.5px; width:100%;}
+  .deliverables-table th{font-size:10px; padding:6px 8px;}
+  .deliverables-table td{padding:8px 8px; border-bottom:1px solid #DDE6FA; vertical-align:top;}
+  .prog-track{width:64px; height:6px; background:#DDE6FA; border-radius:4px;}
+  .prog-fill{height:100%; border-radius:4px;}
+  .deliv-pill{display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:5px; color:#fff; white-space:nowrap;}
+  .deliv-pill.done{background:var(--success); color:var(--header-text);}
+  .deliv-pill.progress{background:var(--amber); color:#4A3300;}
+  .deliv-pill.notstarted{background:var(--signal);}
+
+  .link-ico{color:var(--ink-soft); margin-right:4px; font-size:11px;}
+
+  .goal-strip{display:flex; flex-direction:row; gap:24px;}
+  .goal-strip-group{flex:1; min-width:0;}
+  .strip-label{display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600; margin-bottom:8px;}
+  .pill-row{display:flex; flex-wrap:wrap; gap:6px;}
+  .pill-wrap{display:inline-flex; align-items:center;}
+  .pill-goal{background:var(--brand-soft); color:var(--brand-text); font-size:12px; font-weight:500; padding:5px 11px; border-radius:999px;}
+  .pill-block{background:var(--signal-soft); color:var(--signal-text); font-size:12px; font-weight:500; padding:5px 11px; border-radius:999px;}
+
+  .action-table-full{width:100%;}
+  .task-date-cell{font-family:'Libre Franklin',sans-serif; font-variant-numeric:tabular-nums; font-size:12px; color:var(--ink-soft); white-space:nowrap;}
+
+  footer{
+    max-width:1180px;
+    margin:50px auto 0;
+    padding:20px 24px 0;
+    border-top:1px solid var(--line);
+    font-size:11.5px;
+    color:var(--ink-soft);
+  }
+</style>
+  <script src="dashboard-data.js?v=137a74a1e4"></script>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="masthead-inner">
+    <div>
+      <div class="eyebrow-row">
+        <span class="workgroup-tag" contenteditable="true">Title and Closing Docs to Data DWG</span>
+        <span class="eyebrow" contenteditable="true">Title &amp; Closing · Workgroup Dashboard</span>
+      </div>
+      <div class="title-row">
+        <h1 contenteditable="true">Title Order Dataset Specification<span class="segment-tag" contenteditable="true">(WR2025_22)</span></h1>
+      </div>
+      <div class="leadership">
+        <div class="lead-chip"><span class="role">Facilitator</span><span class="name" contenteditable="true">Kellie Stoll</span><span class="company" contenteditable="true">MISMO</span></div>
+        <div class="lead-chip"><span class="role">Vice-Chair</span><span class="name" contenteditable="true">Bryan Bedard</span><span class="company" contenteditable="true">Rocket Close</span></div>
+        <div class="lead-chip"><span class="role">WR Sponsor</span><span class="name" contenteditable="true">Marvin Stone</span><span class="company" contenteditable="true">Stewart Lender Services</span></div>
+        <div class="lead-chip"><span class="role">WR Sponsor</span><span class="name" contenteditable="true">Steve Gold</span><span class="company" contenteditable="true">ALTA</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="floating-actions">
+  <a class="back-to-hub" href="index.html">← Back to Initiative Hub</a>
+  <button type="button" id="lockToggleBtn" class="lock-toggle-btn" aria-pressed="true" title="Unlock to allow edits">
+    <span class="lock-icon" aria-hidden="true"></span><span class="lock-label">Locked</span>
+  </button>
+  <button type="button" id="saveSnapshotBtn" class="save-toggle-btn" title="Save your edits to the repository so everyone sees them">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path></svg>
+    <span class="save-label">Save</span>
+    <span class="dirty-dot" aria-hidden="true"></span>
+  </button>
+  <button type="button" id="themeToggleBtn" class="theme-toggle-btn" aria-label="Switch to dark mode" title="Switch to dark mode">
+    <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5L19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5L19 5"/></svg>
+    <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></svg>
+  </button>
+</div>
+
+  <div id="restoreBanner" class="restore-banner" style="display:none;">
+    <span class="restore-banner-text">A saved version of this page exists in your browser from a previous visit.</span>
+    <div class="restore-banner-actions">
+      <button type="button" id="restoreBtn" class="restore-btn">Restore it</button>
+      <button type="button" id="dismissRestoreBtn" class="dismiss-restore-btn">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- WORKGROUP INFORMATION -->
+  <div class="meeting-schedule-wrap">
+    <section id="meeting-schedule">
+      <div class="meeting-banner">
+        <div class="meeting-banner-label">Workgroup Information</div>
+        <div class="meeting-tile-row">
+          <div class="meeting-tile">
+            <span class="meeting-tile-label-caption">Name</span>
+            <span class="meeting-tile-value" contenteditable="true">Title and Closing Docs to Data DWG</span>
+          </div>
+          <div class="meeting-tile sponsor-tile">
+            <span class="meeting-tile-label-caption">Sponsored by</span>
+            <img src="mismo-logo-colour.png" alt="MISMO" class="sponsor-tile-logo sponsor-logo-colour">
+            <img src="mismo-logo-white.png" alt="MISMO" class="sponsor-tile-logo sponsor-logo-white">
+          </div>
+          <div class="meeting-tile">
+            <span class="meeting-tile-label-caption">Cadence</span>
+            <span class="meeting-tile-value" contenteditable="true">1st &amp; 3rd Wednesday of the month</span>
+          </div>
+          <div class="meeting-tile">
+            <span class="meeting-tile-label-caption">Time</span>
+            <span class="meeting-tile-value" contenteditable="true">2–3 PM ET</span>
+          </div>
+          <div class="meeting-tile">
+            <span class="meeting-tile-label-caption">Zoom link</span>
+            <a class="meeting-tile-value" href="https://mba-org.zoom.us/j/84866528267" target="_blank" rel="noopener">https://mba-org.zoom.us/j/84866528267</a>
+          </div>
+        </div>
+        <button type="button" class="meeting-banner-btn" id="icsDownloadBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Add to calendar</button>
+      </div>
+    </section>
+  </div>
+
+<div class="wrap">
+
+  <!-- WORK PRODUCT OVERVIEW -->
+  <section id="overview">
+    <div class="overview-shell">
+      <div class="overview-bar">Work Product Overview</div>
+      <div class="overview-grid">
+
+        <div class="overview-col">
+          <div class="overview-card">
+            <h3 class="overview-head">What is the Title Order Dataset Specification?</h3>
+<p contenteditable="true">A standardized dataset for exchanging title order information, so that a lender placing a title order sends the same structured set of fields every time rather than an email, an attachment, a contract, a phone call or a fax.</p>
+<p contenteditable="true">It covers refinance, purchase and home equity transactions, aligning with the other MISMO title and closing dataset specifications. Cash and reverse mortgage transactions are explicitly out of scope.</p>
+<p contenteditable="true">It completes the MISMO suite of title and closing dataset specifications, which already covers title pricing and fulfilment, and lays the groundwork for SMART Doc&reg; integration.</p>
+</div>
+<div class="overview-card" id="why-card">
+            <h3 class="overview-head">Why is MISMO working on this?</h3>
+<ol class="why-list">
+<li contenteditable="true"><strong>Title orders arrive through inconsistent channels.</strong> Structured and unstructured emails, attachments, contracts, phone calls and faxes. That produces data gaps and errors which delay order initiation.</li>
+<li contenteditable="true"><strong>Title providers cannot import orders cleanly.</strong> A standardized dataset lets orders be brought straight into Title Production Systems instead of being rekeyed.</li>
+<li contenteditable="true"><strong>Without it, the fragmentation persists.</strong> The work request is explicit that the alternative is continued inefficiency and delay, and a missed opportunity to build toward SMART Doc&reg; implementation.</li>
+</ol>
+          </div>
+
+          <!-- overview video card removed: no video for this product yet -->
+        </div>
+
+        <div class="overview-col">
+          <div class="overview-card">
+            <h3 class="overview-head">Who brought this to MISMO?</h3>
+            <p class="origin-line"><strong>Brought by:</strong> <span contenteditable="true">Stewart Lender Services (Marvin Stone) and ALTA (Steve Gold), through the Title and Closing Community of Practice, which sponsored the request through both of its Co-Chairs</span></p>
+            <p class="origin-line"><strong>Date started:</strong> <span contenteditable="true">Work request WR2025_22, submitted 2025</span></p>
+            <p class="origin-line"><strong>Why:</strong> <span contenteditable="true">To replace fragmented title order submission with one dataset, improving accuracy and consistency at order placement and completing the MISMO title and closing suite.</span></p>
+            <p class="origin-line" style="margin-bottom:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <strong>Status:</strong>
+              <span class="status-chip-inline warn" contenteditable="true">⚑ Work request submitted — not yet started</span>
+            </p>
+
+            <div class="savings-divider">
+              <h3 class="overview-head">Estimated one-time cost avoided <span class="roi-sample-tag">MISMO estimate</span></h3>
+              <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
+                <span class="savings-fig" contenteditable="true">&mdash;</span>
+                <span class="savings-per-loan-note">no estimate yet</span>
+              </div>
+              <button type="button" class="roi-link" id="roiToggle" onclick="
+                var d = document.getElementById('roiDetail');
+                var c = document.getElementById('roiChevron');
+                var open = d.classList.toggle('open');
+                c.classList.toggle('open', open);
+                document.getElementById('roiToggleText').textContent = open ? 'Hide breakdown' : 'View ROI breakdown';
+              "><span id="roiToggleText">View ROI breakdown</span> <span class="roi-chevron" id="roiChevron">▾</span></button>
+              <div class="roi-detail" id="roiDetail">
+                <div class="roi-detail-row"><span>Designing a testing methodology from scratch &mdash; benchmark selection, leakage controls, temporal matching, metric definitions</span><span>120&ndash;240 hrs</span></div>
+                <div class="roi-detail-row"><span>Writing it up to a standard an examiner will accept</span><span>40&ndash;80 hrs</span></div>
+                <div class="roi-detail-row total"><span>At a loaded rate of about $80/hr</span><span>$13k&ndash;$26k</span></div>
+                <div class="roi-detail-row"><span>Rework if a self-built framework is challenged at first exam</span><span>$3k&ndash;$6k</span></div>
+                <p class="roi-sample-note"><strong>This is a MISMO estimate, not a published or surveyed figure.</strong> No vendor publishes AVM testing prices, so the number is built from assumptions rather than quotes and should be treated as an order of magnitude.</p>
+                <p class="roi-sample-note">What the guide avoids is <em>designing the method</em>, not running the tests &mdash; the federal rule requires testing either way, and that cost remains. The hourly rate assumes a model validation analyst at roughly $115k&ndash;$137k base (Glassdoor, 2026) plus about 35% for benefits and overhead, giving $75&ndash;$90 per hour.</p>
+                <p class="roi-sample-note">Deliberately not expressed per loan. Spread across a lender&rsquo;s annual volume this lands under a few dollars a loan, which understates a real one-time cost that falls hardest on the smallest institutions &mdash; the ones least able to absorb it.</p>
+              </div>
+                
+            </div>
+          </div>
+
+          
+<div class="overview-card" id="deliverables-card">
+            <h3 class="overview-head">Work product deliverables</h3>
+            <table class="deliverables-table">
+<tr><th>Work Request</th><th>Progress</th><th>Status</th><th>Published</th></tr>
+<tr><td contenteditable="true">Dataset mapping specification <span class="mono" style="font-size:10px; color:var(--ink-soft);">WR2025_22</span></td><td><div class="prog-track"><div class="prog-fill deliv-progress-fill" style="width:0%; background:var(--slate);"></div></div></td><td><select class="deliv-pill notstarted deliv-status-select"><option value="notstarted" selected>Not Started</option><option value="progress">In Progress</option><option value="done">Published</option></select></td><td><div class="deliv-date-wrap"><span class="deliv-date-label">Expected Publication Date</span><input type="date" class="deliv-date-input" value="2026-11-01"></div></td></tr>
+<tr><td contenteditable="true">Education and awareness materials <span class="mono" style="font-size:10px; color:var(--ink-soft);">WR2025_22</span></td><td><div class="prog-track"><div class="prog-fill deliv-progress-fill" style="width:0%; background:var(--slate);"></div></div></td><td><select class="deliv-pill notstarted deliv-status-select"><option value="notstarted" selected>Not Started</option><option value="progress">In Progress</option><option value="done">Published</option></select></td><td><div class="deliv-date-wrap"><span class="deliv-date-label">Expected Publication Date</span><input type="date" class="deliv-date-input" value="2026-11-01"></div></td></tr>
+</table>
+          </div>
+
+          <div class="overview-card">
+            <h3 class="overview-head">Relevant industry resources</h3>
+            <ul class="reading-list">
+<li><span class="link-ico">&#8961;</span><a href="https://www.mismo.org/get-involved/workgroup/title-and-closing-docs-to-data-development-workgroup-(dwg)" target="_blank" rel="noopener">Title and Closing Docs to Data Development Workgroup (DWG) &mdash; mismo.org</a></li>
+<li><span class="link-ico">&#8961;</span><a href="https://collaborate.mismo.org/communities/community-home?CommunityKey=436f67b2-b9d6-43c2-8bf1-6a8150db9713" target="_blank" rel="noopener">Workgroup collaboration site &mdash; MISMO Connect</a></li>
+<li><span class="link-ico">&#8961;</span><a href="#" target="_blank" rel="noopener">Dataset mapping specification &mdash; add link on publication</a></li>
+</ul>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STAKEHOLDERS -->
+  <section id="stakeholders">
+    <div class="section-head">
+      <h2>Stakeholder Role &amp; Benefits</h2>
+    </div>
+    <p class="section-subtext">Who's involved, how critical they are, and their current implementation status.</p>
+
+    <div class="stake-layout">
+      <div class="card stake-card">
+        <table>
+          <tr><th>Type</th><th>Benefit</th><th>Critical</th><th>Role</th></tr>
+          <tr><td><select class="type-select"><option value="Mortgage Originator" selected>Mortgage Originator</option><option value="Title Agent">Title Agent</option><option value="Title Underwriter">Title Underwriter</option><option value="Title Production System">Title Production System</option><option value="LOS Provider">LOS Provider</option><option value="Document Provider">Document Provider</option><option value="Trade Association">Trade Association</option></select></td><td contenteditable="true">Places title orders once, in one format, instead of by email, attachment, contract, phone or fax</td><td><select class="crit-select is-star"><option value="star" selected>★</option><option value="line">—</option></select></td><td><select class="role-select"><option value="Driver">Driver</option><option value="Implementer">Implementer</option><option value="Both" selected>Driver &amp; Implementer</option></select></td></tr>
+          <tr><td><select class="type-select"><option value="Mortgage Originator">Mortgage Originator</option><option value="Title Agent" selected>Title Agent</option><option value="Title Underwriter">Title Underwriter</option><option value="Title Production System">Title Production System</option><option value="LOS Provider">LOS Provider</option><option value="Document Provider">Document Provider</option><option value="Trade Association">Trade Association</option></select></td><td contenteditable="true">Receives complete orders rather than chasing missing fields, so orders start without delay</td><td><select class="crit-select is-star"><option value="star" selected>★</option><option value="line">—</option></select></td><td><select class="role-select"><option value="Driver">Driver</option><option value="Implementer">Implementer</option><option value="Both" selected>Driver &amp; Implementer</option></select></td></tr>
+          <tr><td><select class="type-select"><option value="Mortgage Originator">Mortgage Originator</option><option value="Title Agent">Title Agent</option><option value="Title Underwriter" selected>Title Underwriter</option><option value="Title Production System">Title Production System</option><option value="LOS Provider">LOS Provider</option><option value="Document Provider">Document Provider</option><option value="Trade Association">Trade Association</option></select></td><td contenteditable="true">Consistent order data across the agents it works with, and fewer downstream corrections</td><td><select class="crit-select"><option value="star">★</option><option value="line" selected>—</option></select></td><td><select class="role-select"><option value="Driver" selected>Driver</option><option value="Implementer">Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
+          <tr><td><select class="type-select"><option value="Mortgage Originator">Mortgage Originator</option><option value="Title Agent">Title Agent</option><option value="Title Underwriter">Title Underwriter</option><option value="Title Production System" selected>Title Production System</option><option value="LOS Provider">LOS Provider</option><option value="Document Provider">Document Provider</option><option value="Trade Association">Trade Association</option></select></td><td contenteditable="true">Imports orders directly instead of rekeying them from unstructured sources</td><td><select class="crit-select"><option value="star">★</option><option value="line" selected>—</option></select></td><td><select class="role-select"><option value="Driver">Driver</option><option value="Implementer" selected>Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
+          <tr><td><select class="type-select"><option value="Mortgage Originator">Mortgage Originator</option><option value="Title Agent">Title Agent</option><option value="Title Underwriter">Title Underwriter</option><option value="Title Production System">Title Production System</option><option value="LOS Provider" selected>LOS Provider</option><option value="Document Provider">Document Provider</option><option value="Trade Association">Trade Association</option></select></td><td contenteditable="true">One integration point for title ordering across every lender client</td><td><select class="crit-select is-star"><option value="star" selected>★</option><option value="line">—</option></select></td><td><select class="role-select"><option value="Driver">Driver</option><option value="Implementer" selected>Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
+          <tr><td><select class="type-select"><option value="Mortgage Originator">Mortgage Originator</option><option value="Title Agent">Title Agent</option><option value="Title Underwriter">Title Underwriter</option><option value="Title Production System">Title Production System</option><option value="LOS Provider">LOS Provider</option><option value="Document Provider" selected>Document Provider</option><option value="Trade Association">Trade Association</option></select></td><td contenteditable="true">Consistent order data upstream of document production, and a path toward SMART Doc&reg; integration</td><td><select class="crit-select"><option value="star">★</option><option value="line" selected>—</option></select></td><td><select class="role-select"><option value="Driver">Driver</option><option value="Implementer" selected>Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
+          <tr><td><select class="type-select"><option value="Mortgage Originator">Mortgage Originator</option><option value="Title Agent">Title Agent</option><option value="Title Underwriter">Title Underwriter</option><option value="Title Production System">Title Production System</option><option value="LOS Provider">LOS Provider</option><option value="Document Provider">Document Provider</option><option value="Trade Association" selected>Trade Association</option></select></td><td contenteditable="true">Promotes a single standard to its membership rather than fielding bespoke integrations</td><td><select class="crit-select"><option value="star">★</option><option value="line" selected>—</option></select></td><td><select class="role-select"><option value="Driver" selected>Driver</option><option value="Implementer">Implementer</option><option value="Both">Driver &amp; Implementer</option></select></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <h3 class="card-dark-bar" style="margin:0 0 4px;">Stakeholder engagement roster</h3>
+    <p class="section-subtext" style="margin:0 0 12px;">Organisations named in the work request. No attendance tracker loaded for this work product yet.</p>
+    <div class="card" style="padding:18px;" id="roster">
+      <div class="roster-controls">
+        <span class="current-type-label" id="currentTypeLabel"></span>
+        <input class="search-input" id="rosterSearch" type="text" placeholder="Search org or participant…">
+        <div class="add-company-wrap">
+          <button type="button" class="add-company-btn" id="addCompanyBtn" aria-label="Add company" title="Add company">+</button>
+          <div class="add-company-popover" id="addCompanyPopover" style="display:none;">
+            <label class="add-company-field-label">Company name</label>
+            <input type="text" class="add-company-name-input" id="addCompanyNameInput" placeholder="e.g. Black Knight">
+            <label class="add-company-field-label">Stakeholder type</label>
+            <select class="add-company-type-select" id="addCompanyTypeSelect">
+              <option value="AVM Provider">AVM Provider</option>
+              
+              <option value="Mortgage Originator">Mortgage Originator</option>
+            </select>
+            <div class="add-company-error" id="addCompanyError" style="display:none;"></div>
+            <div class="add-company-actions">
+              <button type="button" class="add-company-cancel-btn" id="addCompanyCancelBtn">Cancel</button>
+              <button type="button" class="add-company-confirm-btn" id="addCompanyConfirmBtn">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="roster-layout" id="rosterLayout">
+        <div class="roster-side-card" id="rosterSidebar"></div>
+        <div>
+          <div class="goals-strip" id="rosterGoalsStrip">
+            <div class="roster-command-layout" id="rosterCommandLayout">
+              <div id="rosterLaneSidebar"></div>
+              <div id="rosterLaneMain"></div>
+            </div>
+          </div>
+          <div class="roster-list" id="rosterList"></div>
+        </div>
+      </div>
+      <p class="section-note" id="rosterEmpty" style="display:none; padding:14px 0 0;">No rows match this filter.</p>
+      <datalist id="stakeholderTypeOptions">
+        <option value="AVM Provider">
+        <option value="GSE">
+        <option value="Mortgage Originator">
+      </datalist>
+    </div>
+  </section>
+
+  <!-- GOVERNANCE -->
+  <section id="governance">
+    <h3 class="card-dark-bar" style="margin:0 0 10px;">Meeting tracker</h3>
+    <p class="section-subtext">Engagement and effort tracked across workgroup meetings.</p>
+
+    <div class="gov-layout">
+      <div class="card gov-card">
+        <div id="leaderboard"></div>
+      </div>
+      <div class="card gov-card fac-hours">
+        <span class="kpi-label">All-time tracker total</span>
+        <div class="kpi-value" contenteditable="true">—</div>
+        <div class="recon-note">No meeting tracker loaded for this work product yet.</div>
+        <div class="updated-line" contenteditable="true">—</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  Draft dashboard for the Title Order Dataset Specification, built from work request WR2025_22 and the MISMO workgroup page · a Chair is not listed for this DWG on mismo.org, and the roster covers only the organisations named so far · not affiliated with or hosted by MISMO.</footer>
+
+<script>
+  // --- Lock/unlock: defined first so isLocked exists before any initial render call runs.
+  // applyLockState() genuinely toggles the contenteditable attribute and .disabled property
+  // (not just CSS) and is called from renderRosterList()/renderLane() too, so re-renders
+  // triggered by search, filtering, or status changes can't silently unlock fresh content. ---
+
+  // Light mode is the default for this dashboard — only switches to dark if the
+  // user has explicitly chosen it before (saved in localStorage). Uses a
+  // dashboard-specific storage key so each dashboard remembers its own choice
+  // independently.
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+  function applyDashboardTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    if (themeToggleBtn){
+      const label = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+      themeToggleBtn.setAttribute('aria-label', label);
+      themeToggleBtn.title = label;
+    }
+  }
+  let savedDashboardTheme = 'light';
+  try {
+    savedDashboardTheme = localStorage.getItem('resources:hub:title-order:theme') || 'light';
+  } catch (e) {
+    // Local storage unavailable — just default to light.
+  }
+  applyDashboardTheme(savedDashboardTheme);
+  if (themeToggleBtn){
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      applyDashboardTheme(next);
+      try {
+        localStorage.setItem('resources:hub:title-order:theme', next);
+      } catch (e) {
+        // Local storage unavailable — the toggle still works, it just won't persist.
+      }
+    });
+  }
+
+  // Lock toggle: prevents accidental edits without touching any underlying data
+  const lockToggleBtn = document.getElementById('lockToggleBtn');
+  let isLocked = true;
+
+  const LOCK_ICON_LOCKED = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>';
+  const LOCK_ICON_UNLOCKED = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 7.75-1.5"></path></svg>';
+
+  function applyLockState(){
+    document.querySelectorAll('[contenteditable]').forEach(el => {
+      el.setAttribute('contenteditable', isLocked ? 'false' : 'true');
+    });
+    document.querySelectorAll(
+      'select.status-select, select.crit-select, select.role-select, select.type-select, select.deliv-status-select, input.type-input, input.deliv-date-input, .contact-input'
+    ).forEach(el => {
+      el.disabled = isLocked;
+    });
+    document.body.classList.toggle('locked', isLocked);
+  }
+
+  function updateLockUI(){
+    lockToggleBtn.classList.toggle('is-locked', isLocked);
+    lockToggleBtn.setAttribute('aria-pressed', isLocked ? 'true' : 'false');
+    lockToggleBtn.querySelector('.lock-icon').innerHTML = isLocked ? LOCK_ICON_LOCKED : LOCK_ICON_UNLOCKED;
+    lockToggleBtn.querySelector('.lock-label').textContent = isLocked ? 'Locked' : 'Unlocked';
+    lockToggleBtn.title = isLocked ? 'Unlock to allow edits' : 'Lock this dashboard to prevent edits';
+    applyLockState();
+  }
+
+  lockToggleBtn.addEventListener('click', () => {
+    isLocked = !isLocked;
+    if (isLocked){
+      editingContactIdx = null;
+      editingTaskIdx = null;
+      renderRosterList();
+      renderLane();
+    }
+    updateLockUI();
+  });
+
+  updateLockUI();
+
+  // Roadmap: lane data + task table renderer, embedded in the roster
+  let laneData = {
+    general:   { goals: [], roadblocks: [], actions: [] },
+    lender:    { goals: [], roadblocks: [], actions: [] },
+    titleagent:{ goals: [], roadblocks: [], actions: [] },
+    tps:       { goals: [], roadblocks: [], actions: [] },
+    los:       { goals: [], roadblocks: [], actions: [] },
+    docprov:   { goals: [], roadblocks: [], actions: [] },
+    assoc:     { goals: [], roadblocks: [], actions: [] },
+    underwriter:{ goals: [], roadblocks: [], actions: [] }
+  };;
+
+  let currentLane = 'titleagent';   // must match a key in laneData and the default activeType
+  let editingTaskIdx = null; // null = none, 'new' = adding, number = editing that index
+  const laneRoot = document.getElementById('rosterCommandLayout');
+
+  const actionStatusOptions = [
+    ['not-started', 'Not Started'],
+    ['in-progress', 'In Progress'],
+    ['blocked', 'Blocked'],
+    ['complete', 'Complete']
+  ];
+  const actionStatusLabels = Object.fromEntries(actionStatusOptions);
+
+  function escapeAttr(str){
+    return (str || '').replace(/"/g, '&quot;');
+  }
+
+  // For text inserted into innerHTML display contexts (not attribute values) — prevents
+  // a stray < or & in a typed goal/task/note from being interpreted as markup. Safe to
+  // round-trip with contenteditable: browsers already escape these when serializing typed
+  // text back out via .textContent, so re-escaping on display never double-encodes edits.
+  function escapeHtml(str){
+    return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function renderActionStatusSelect(laneKey, idx, status){
+    const opts = actionStatusOptions.map(([key, label]) =>
+      `<option value="${key}" ${key === status ? 'selected' : ''}>${label}</option>`
+    ).join('');
+    return `<select class="status-select ${status}" data-lane="${laneKey}" data-action-idx="${idx}" aria-label="Task status">${opts}</select>`;
+  }
+
+  function taskStatusOptionsHtml(status){
+    return actionStatusOptions.map(([key, label]) =>
+      `<option value="${key}" ${key === status ? 'selected' : ''}>${label}</option>`
+    ).join('');
+  }
+
+  function taskEditRowHtml(idx, action){
+    return `<tr class="task-edit-container">
+      <td><input class="contact-input" type="text" data-task-field="task" placeholder="Task" value="${escapeAttr(action.task)}"></td>
+      <td><input class="contact-input" type="text" data-task-field="owner" placeholder="Owner" value="${escapeAttr(action.owner)}"></td>
+      <td class="task-date-cell">${escapeHtml(action.dateAssigned || 'Set on save')}</td>
+      <td><select class="contact-input" data-task-field="status">${taskStatusOptionsHtml(action.status)}</select></td>
+      <td class="task-icons"><button type="button" class="contact-save-btn" data-save-task="${idx}">Save</button><button type="button" class="contact-cancel-btn" data-cancel-task="${idx}">Cancel</button></td>
+    </tr>`;
+  }
+
+  function renderPillGroup(label, items, kind){
+    const pillClass = kind === 'goal' ? 'pill-goal' : 'pill-block';
+    let inner = items.map((text, i) =>
+      `<span class="pill-wrap"><span class="${pillClass}" contenteditable="true" data-pill-kind="${kind}" data-pill-idx="${i}">${escapeHtml(text)}</span><button type="button" class="pill-remove" data-pill-remove="${kind}:${i}" title="Remove">×</button></span>`
+    ).join('');
+    inner += `<button type="button" class="pill-add-btn" data-pill-add="${kind}">+ Add</button>`;
+    return `<div class="goal-strip-group"><span class="strip-label">${label}</span><div class="pill-row">${inner}</div></div>`;
+  }
+
+  // --- Shared persistent storage (test build) ---
+  // Keys are namespaced per-dashboard as cheap insurance against any cross-artifact collision.
+  // Storage is git-backed now and lives in dashboard-data.js — see that file for why.
+  // These wrappers keep the existing call sites working: an edit marks the page dirty,
+  // and nothing reaches the repository until the Save button is pressed.
+  MismoStore.configure({ id: 'ccs' });
+  let hasLoadedFromStorage = false;
+  let pendingGenericState = null;
+
+  // Gated on hasLoadedFromStorage for two reasons. Semantically, nothing that happens
+  // before the saved data arrives is a user edit. Practically, the initial render calls
+  // these, and flagUnsaved() touches `isRestoring` and `hasUnsavedChanges`, which are
+  // declared with let much further down — reaching them early throws a temporal-dead-zone
+  // ReferenceError that aborts the rest of the script and leaves the roster blank.
+  function saveRosterData(){ if (hasLoadedFromStorage) flagUnsaved(); }
+  function saveLaneData(){ if (hasLoadedFromStorage) flagUnsaved(); }
+
+  // Reads the committed data file. Runs for EVERY visitor at page load, not lazily on
+  // first edit as it used to — otherwise a viewer would see the built-in defaults while
+  // an editor saw the saved data, and the two would disagree about what is true.
+  async function loadSharedData(){
+    const saved = await MismoStore.load();
+    if (!saved) return { rosterFound: false, laneFound: false };
+    let rosterFound = false, laneFound = false;
+    if (Array.isArray(saved.rosterData)) { rosterData = saved.rosterData; rosterFound = true; }
+
+    // Merged over the defaults, never assigned wholesale. A saved file can predate a lane
+    // that exists now — stakeholder types change, and every type owns a lane — and
+    // renderLane() throws on a missing key, which aborts the rest of the boot and leaves
+    // the page half-rendered. Any lane absent from the file falls back to an empty one.
+    if (saved.laneData && typeof saved.laneData === 'object') {
+      Object.keys(saved.laneData).forEach(function(k){
+        var v = saved.laneData[k] || {};
+        laneData[k] = {
+          goals:      Array.isArray(v.goals)      ? v.goals      : [],
+          roadblocks: Array.isArray(v.roadblocks) ? v.roadblocks : [],
+          actions:    Array.isArray(v.actions)    ? v.actions    : []
+        };
+      });
+      Object.keys(laneLabels).forEach(function(k){
+        if (!laneData[k]) laneData[k] = { goals: [], roadblocks: [], actions: [] };
+      });
+      laneFound = true;
+    }
+    if (saved.generic) pendingGenericState = saved.generic;
+    return { rosterFound, laneFound };
+  }
+
+  const laneLabels = {
+    general: 'General',
+    avmprovider: 'AVM Provider',
+    lender: 'Mortgage Originator'
+  };
+
+  function renderLane(){
+    const lane = laneData[currentLane];
+    const sidebar = document.getElementById('rosterLaneSidebar');
+    const main = document.getElementById('rosterLaneMain');
+
+    sidebar.innerHTML = `<div class="goal-strip">${renderPillGroup('Goals', lane.goals, 'goal')}${renderPillGroup('Roadblocks', lane.roadblocks, 'roadblock')}</div>`;
+
+    let html = '';
+    if (lane.actions.length === 0 && editingTaskIdx !== 'new'){
+      html += `<p class="empty-lane-note">No tasks yet for this stakeholder group.</p>`;
+    } else {
+      html += `<table class="action-table-full"><tr><th>Task</th><th>Owner</th><th>Date Assigned</th><th>Status</th><th></th></tr>`;
+      lane.actions.forEach((a, i) => {
+        if (i === editingTaskIdx){
+          html += taskEditRowHtml(i, a);
+        } else {
+          const doneClass = a.status === 'complete' ? 'done-task' : '';
+          html += `<tr><td class="${doneClass}">${escapeHtml(a.task)}</td><td>${escapeHtml(a.owner)}</td><td class="task-date-cell">${escapeHtml(a.dateAssigned || '—')}</td><td>${renderActionStatusSelect(currentLane, i, a.status)}</td><td class="task-icons"><button type="button" class="icon-btn" data-edit-task="${i}" title="Edit">✎</button><button type="button" class="icon-btn" data-remove-task="${i}" title="Remove">🗑</button></td></tr>`;
+        }
+      });
+      if (editingTaskIdx === 'new'){
+        html += taskEditRowHtml('new', {task:'', owner:'', status:'not-started'});
+      }
+      html += `</table>`;
+    }
+    if (editingTaskIdx === null){
+      html += `<button type="button" class="add-task-btn" data-add-task>+ Add task</button>`;
+    }
+
+    main.innerHTML = html;
+    saveLaneData();
+    applyLockState();
+  }
+
+
+
+
+  renderLane();
+
+  // Quick status changes on non-edit rows: update the data model and re-render
+  laneRoot.addEventListener('change', async (e) => {
+    if (!e.target.matches('select.status-select')) return;
+    const laneKey = e.target.getAttribute('data-lane');
+    const idx = parseInt(e.target.getAttribute('data-action-idx'), 10);
+    const newStatus = e.target.value;
+    await ensureLoaded();
+    laneData[laneKey].actions[idx].status = newStatus;
+    laneData[laneKey].actions[idx].label = actionStatusLabels[newStatus];
+    renderLane();
+  });
+
+  // Add / edit / remove tasks
+  laneRoot.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-add-task]')){
+      editingTaskIdx = 'new';
+      renderLane();
+      return;
+    }
+    const editBtn = e.target.closest('[data-edit-task]');
+    if (editBtn){
+      editingTaskIdx = parseInt(editBtn.getAttribute('data-edit-task'), 10);
+      renderLane();
+      return;
+    }
+    const removeBtn = e.target.closest('[data-remove-task]');
+    if (removeBtn){
+      const idx = parseInt(removeBtn.getAttribute('data-remove-task'), 10);
+      await ensureLoaded();
+      laneData[currentLane].actions.splice(idx, 1);
+      editingTaskIdx = null;
+      renderLane();
+      return;
+    }
+    const saveBtn = e.target.closest('[data-save-task]');
+    if (saveBtn){
+      const container = saveBtn.closest('.task-edit-container');
+      const taskVal = container.querySelector('[data-task-field="task"]').value.trim();
+      const ownerVal = container.querySelector('[data-task-field="owner"]').value.trim();
+      const statusVal = container.querySelector('[data-task-field="status"]').value;
+      if (!taskVal){
+        alert('Task name is required.');
+        return;
+      }
+      const rawIdx = saveBtn.getAttribute('data-save-task');
+      await ensureLoaded();
+      const isNewTask = rawIdx === 'new';
+      // Date is stamped automatically at creation and never re-set on later edits —
+      // it records when the task was first assigned, not when it was last touched.
+      const dateAssigned = isNewTask
+        ? new Date().toLocaleDateString('en-US')
+        : laneData[currentLane].actions[parseInt(rawIdx, 10)].dateAssigned;
+      const newAction = {task: taskVal, owner: ownerVal || 'Unassigned', status: statusVal, label: actionStatusLabels[statusVal], dateAssigned};
+      if (isNewTask){
+        laneData[currentLane].actions.push(newAction);
+      } else {
+        laneData[currentLane].actions[parseInt(rawIdx, 10)] = newAction;
+      }
+      editingTaskIdx = null;
+      renderLane();
+      return;
+    }
+    if (e.target.closest('[data-cancel-task]')){
+      editingTaskIdx = null;
+      renderLane();
+    }
+
+    const pillAddBtn = e.target.closest('[data-pill-add]');
+    if (pillAddBtn){
+      const kind = pillAddBtn.getAttribute('data-pill-add');
+      await ensureLoaded();
+      const arr = kind === 'goal' ? laneData[currentLane].goals : laneData[currentLane].roadblocks;
+      arr.push(kind === 'goal' ? 'New goal' : 'New roadblock');
+      renderLane();
+      setTimeout(() => {
+        const pills = laneRoot.querySelectorAll(`[data-pill-kind="${kind}"]`);
+        const last = pills[pills.length - 1];
+        if (last){
+          last.focus();
+          const range = document.createRange();
+          range.selectNodeContents(last);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }, 0);
+      return;
+    }
+    const pillRemoveBtn = e.target.closest('[data-pill-remove]');
+    if (pillRemoveBtn){
+      const [kind, idxStr] = pillRemoveBtn.getAttribute('data-pill-remove').split(':');
+      const idx = parseInt(idxStr, 10);
+      await ensureLoaded();
+      const arr = kind === 'goal' ? laneData[currentLane].goals : laneData[currentLane].roadblocks;
+      arr.splice(idx, 1);
+      renderLane();
+    }
+  });
+
+  // Goal/roadblock pill text: sync to the data model on blur (capture phase, since blur doesn't bubble)
+  laneRoot.addEventListener('blur', async (e) => {
+    const kind = e.target.getAttribute && e.target.getAttribute('data-pill-kind');
+    if (!kind) return;
+    const idx = parseInt(e.target.getAttribute('data-pill-idx'), 10);
+    const textVal = e.target.textContent.trim();
+    await ensureLoaded();
+    const arr = kind === 'goal' ? laneData[currentLane].goals : laneData[currentLane].roadblocks;
+    arr[idx] = textVal;
+    renderLane();
+  }, true);
+
+  // Shared roster data — drives both the engagement table and the funnel bars
+  // Status values use the current 5-tier system: na (No Implementation Necessary),
+  // not-planned (No Implementation Planned), pilot-planned (Pilot Planned — pairs with
+  // targetDate as a planned pilot date), impl-planned (Implementation Planned — pairs
+  // with targetDate as a planned implementation date), implemented (Implemented).
+  // roadblocks and targetDate are both new fields with no real source data yet for any
+  // org here — left empty rather than inferred from notes text.
+  let rosterData = [
+    {type:'Title Agent', org:'Stewart Lender Services', status:'not-planned', primaryContact:'Marvin Stone', title:'Work request sponsor', email:'', participants:'', notes:'Completed the preliminary discovery and identified the core data fields.', roadblocks:'', targetDate:''},
+    {type:'Trade Association', org:'ALTA', status:'not-planned', primaryContact:'Steve Gold', title:'Work request sponsor', email:'', participants:'', notes:'', roadblocks:'', targetDate:''},
+    {type:'LOS Provider', org:'ICE', status:'not-planned', primaryContact:'', title:'', email:'', participants:'', notes:'Named in the work request as a target LOS provider.', roadblocks:'', targetDate:''},
+    {type:'Title Agent', org:'Rocket Close', status:'not-planned', primaryContact:'Bryan Bedard', title:'Vice-Chair, Title and Closing Docs to Data DWG', email:'', participants:'', notes:'', roadblocks:'', targetDate:''},
+  ];
+
+  const statusOptions = [
+    ['na', 'No Implementation Necessary'],
+    ['not-planned', 'No Implementation Planned'],
+    ['pilot-planned', 'Pilot Planned'],
+    ['impl-planned', 'Implementation Planned'],
+    ['implemented', 'Implemented']
+  ];
+
+  function renderStatusSelect(idx, status){
+    const opts = statusOptions.map(([key, label]) =>
+      `<option value="${key}" ${key === status ? 'selected' : ''}>${label}</option>`
+    ).join('');
+    return `<select class="status-select roster-status ${status}" data-idx="${idx}" aria-label="Adoption status">${opts}</select>`;
+  }
+
+  let editingContactIdx = null;
+
+  function renderContactCell(idx, row){
+    if (idx === editingContactIdx){
+      return `<div class="contact-edit-form">
+        <input class="contact-input" type="text" data-field="name" placeholder="Name" value="${row.primaryContact.replace(/"/g,'&quot;')}">
+        <input class="contact-input" type="text" data-field="title" placeholder="Title" value="${(row.title||'').replace(/"/g,'&quot;')}">
+        <input class="contact-input" type="email" data-field="email" placeholder="Email" value="${(row.email||'').replace(/"/g,'&quot;')}">
+        <div class="contact-edit-actions">
+          <button type="button" class="contact-save-btn" data-save-idx="${idx}">Save</button>
+          <button type="button" class="contact-cancel-btn" data-cancel-idx="${idx}">Cancel</button>
+        </div>
+      </div>`;
+    }
+    const hasAnyContactInfo = row.primaryContact || row.title || row.email;
+    if (!hasAnyContactInfo){
+      return `<div class="contact-block">
+        <div class="contact-name placeholder">No contact information</div>
+        <button type="button" class="contact-edit-btn" data-edit-idx="${idx}">✎ Edit</button>
+      </div>`;
+    }
+    const titleHtml = row.title ? `<div class="contact-sub">${escapeHtml(row.title)}</div>` : `<div class="contact-sub placeholder">Add title</div>`;
+    const emailHtml = row.email ? `<div class="contact-sub"><a href="mailto:${escapeAttr(row.email)}">${escapeHtml(row.email)}</a></div>` : `<div class="contact-sub placeholder">Add email</div>`;
+    const nameHtml = row.primaryContact ? `<div class="contact-name">${escapeHtml(row.primaryContact)}</div>` : `<div class="contact-name placeholder">Add primary contact</div>`;
+    return `<div class="contact-block">
+      ${nameHtml}
+      ${titleHtml}
+      ${emailHtml}
+      <button type="button" class="contact-edit-btn" data-edit-idx="${idx}">✎ Edit</button>
+    </div>`;
+  }
+
+  const statusColorVar = {
+    'na': '--slate', 'not-planned': '--status-red', 'pilot-planned': '--status-orange',
+    'impl-planned': '--status-yellow', 'implemented': '--status-green'
+  };
+
+  // Splits a participants string into individual chips. Two special cases are NOT
+  // split on comma, since they're a single narrative sentence rather than a list:
+  // (1) "No one met the threshold" messages, which can name 2+ tied people with their
+  // own internal comma; (2) a single person's entry that has explanatory commentary
+  // appended (which may itself contain a comma) rather than being a genuine second
+  // person. Boundary is detected by where a new "Name (" pattern starts, not by comma,
+  // so any trailing/embedded commentary — including its own commas — stays attached
+  // to the person it describes.
+  function splitParticipantChips(str){
+    if (str.startsWith('No one met')) return [str];
+    const boundaryRe = /\p{Lu}[\p{L}.’''-]*(?:\s+\p{L}[\p{L}.’''-]*)*\s\(/gu;
+    const starts = [];
+    let m;
+    while ((m = boundaryRe.exec(str)) !== null) starts.push(m.index);
+    if (starts.length === 0) return [str];
+    const chips = [];
+    for (let i = 0; i < starts.length; i++){
+      const start = starts[i];
+      const end = i + 1 < starts.length ? starts[i + 1] : str.length;
+      chips.push(str.slice(start, end).replace(/,\s*$/, '').trim());
+    }
+    if (starts[0] > 0) chips.unshift(str.slice(0, starts[0]).replace(/,\s*$/, '').trim());
+    return chips.filter(c => c.length > 0);
+  }
+
+  // Fixed left-to-right color order for every status breakdown bar, regardless of which
+  // statuses are actually present for a given type — grey, red, orange, yellow, green.
+  const STATUS_ORDER = ['na', 'not-planned', 'pilot-planned', 'impl-planned', 'implemented'];
+
+  // Shows every stakeholder type at once with its own status breakdown bar — this is the
+  // primary way to navigate the roster now (click a type to filter the list on the right),
+  // replacing the old row of filter chips. Always computed from the FULL rosterData, not
+  // the currently-filtered list, so every type's true total is always visible here.
+  // Maps a roster type (as used in rosterData) to its corresponding Roadmap lane key
+  // (as used in laneData) — a simple 1:1 mapping for CCS, no granular-to-broad rollup needed.
+  /* Every type this initiative involves gets a lane, so the sidebar lists them all even
+     before any organisation has been added to one. Types not listed here would vanish
+     from the sidebar the moment their roster rows were empty. */
+  const ROSTER_TYPE_TO_LANE = {
+    'Mortgage Originator': 'lender',
+    'Title Agent': 'titleagent',
+    'Title Production System': 'tps',
+    'LOS Provider': 'los',
+    'Document Provider': 'docprov',
+    'Trade Association': 'assoc',
+    'Title Underwriter': 'underwriter'
+  };
+
+  // The current-type label above the roster is the only thing this function handles —
+  // the actual Goals/Roadblocks/Tasks content is rendered by renderLane() itself,
+  // redirected to render into the roster's own DOM elements instead of a separate
+  // Roadmap section, since currentLane is now derived from the roster's activeType.
+  function renderGoalsStrip(){
+    document.getElementById('currentTypeLabel').textContent = MismoStore.typeName(activeType);
+  }
+
+  function renderTypeSidebar(){
+    const sidebar = document.getElementById('rosterSidebar');
+    // Union of types that have organizations AND every approved type for this initiative
+    // (the keys of ROSTER_TYPE_TO_LANE). Sourcing from rosterData alone hides any type with
+    // zero organizations, which makes that type's roadmap lane unreachable — the
+    // one-lane-per-type rule has to hold in the UI, not only in the data.
+    const allTypes = [...new Set([
+      ...rosterData.map(r => r.type),
+      ...Object.keys(ROSTER_TYPE_TO_LANE)
+    ])].sort((a, b) => a.localeCompare(b));
+    let html = '<div class="roster-side-label">At a glance — every type</div>';
+    allTypes.forEach(type => {
+      const rows = rosterData.filter(r => r.type === type);
+      const counts = {};
+      STATUS_ORDER.forEach(key => counts[key] = 0);
+      rows.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
+      const total = rows.length;
+      // total can be 0 for an approved type with no organizations; dividing by it emits
+      // width:NaN% and collapses the bar.
+      const segs = total === 0 ? '' : STATUS_ORDER.filter(key => counts[key] > 0).map(key =>
+        `<div class="mini-seg" style="width:${(counts[key] / total * 100).toFixed(1)}%; background:var(${statusColorVar[key]});"></div>`
+      ).join('');
+      html += `<div class="type-row ${type === activeType ? 'active' : ''}" data-type-select="${escapeAttr(type)}">
+        <div class="type-row-top"><span class="type-name">${escapeHtml(MismoStore.typeName(type))}</span><span class="type-count">${total}</span></div>
+        <div class="mini-bar">${segs}</div>
+      </div>`;
+    });
+    html += `<div class="side-legend">
+      <div class="legend-item"><span class="legend-dot" style="background:var(--slate);"></span>No Implementation Necessary</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--status-red);"></span>No Implementation Planned</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--status-orange);"></span>Pilot Planned</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--status-yellow);"></span>Implementation Planned</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--status-green);"></span>Implemented</div>
+    </div>`;
+    sidebar.innerHTML = html;
+  }
+
+  // Tracks which rows (by their index in rosterData) currently have their detail drawer
+  // open — persists across re-renders (status changes, edits, search) within the session,
+  // but isn't part of rosterData itself since it's view state, not data.
+  let expandedRowIndices = new Set();
+
+  function renderRosterList(){
+    const listRoot = document.getElementById('rosterList');
+    const q = searchInput.value.trim().toLowerCase();
+    let visibleCount = 0;
+    const matchingRows = [];
+    rosterData.forEach((row, idx) => {
+      const typeMatch = row.type === activeType;
+      const haystack = `${row.type} ${MismoStore.typeName(row.type)} ${row.org} ${row.primaryContact} ${row.title||''} ${row.email||''} ${row.participants} ${row.notes} ${row.roadblocks||''}`.toLowerCase();
+      const textMatch = q === '' || haystack.includes(q);
+      if (typeMatch && textMatch) matchingRows.push({ row, idx });
+    });
+    // Alphabetical by org name, per the current navigation convention.
+    matchingRows.sort((a, b) => a.row.org.localeCompare(b.row.org));
+
+    let html = '';
+    matchingRows.forEach(({ row, idx }) => {
+      visibleCount++;
+      const isExpanded = expandedRowIndices.has(idx);
+      const idAttr = row.rowId ? ` id="${row.rowId}"` : '';
+      let drawerHtml = '';
+      if (isExpanded){
+        const participantChips = splitParticipantChips(row.participants).map(s =>
+          `<span class="participant-chip">${s}</span>`
+        ).join('');
+        let dateHtml = '';
+        if (row.status === 'pilot-planned'){
+          dateHtml = `<div class="date-label">Planned pilot date</div><input type="date" class="roster-date-input date-input-mini" data-idx="${idx}" value="${escapeAttr(row.targetDate || '')}">`;
+        } else if (row.status === 'impl-planned'){
+          dateHtml = `<div class="date-label">Planned implementation date</div><input type="date" class="roster-date-input date-input-mini" data-idx="${idx}" value="${escapeAttr(row.targetDate || '')}">`;
+        }
+        const roadblocksDisplay = row.roadblocks ? escapeHtml(row.roadblocks) : 'None noted';
+        drawerHtml = `<div class="list-drawer">
+          <input class="type-input org-type-input drawer-type-tag" list="stakeholderTypeOptions" data-roster-field="type" data-idx="${idx}" value="${escapeAttr(row.type)}">
+          <div class="card-grid">
+            <div class="mini-card">
+              <div class="mini-card-label">Contact</div>
+              ${renderContactCell(idx, row)}
+              ${dateHtml}
+            </div>
+            <div class="mini-card ${row.roadblocks ? 'flagged' : ''}">
+              <div class="mini-card-label">Roadblocks</div>
+              <div class="roadblock-text ${row.roadblocks ? '' : 'empty'}" contenteditable="true" data-roster-field="roadblocks" data-idx="${idx}">${roadblocksDisplay}</div>
+            </div>
+            <div class="mini-card">
+              <div class="mini-card-label">Active Workgroup Participants</div>
+              <div title="Attendance data — not editable">${participantChips}</div>
+              <div class="notes-text" contenteditable="true" data-roster-field="notes" data-idx="${idx}">${escapeHtml(row.notes)}</div>
+            </div>
+          </div>
+        </div>`;
+      }
+      html += `<div class="list-row ${isExpanded ? 'expanded' : ''} ${row.roadblocks ? 'has-roadblock' : ''}"${idAttr} data-row-idx="${idx}">
+        <div class="list-row-summary" data-toggle-idx="${idx}">
+          <svg class="expand-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          <div class="list-org-name-wrap">
+            <span class="list-org-name" contenteditable="true" data-roster-field="org" data-idx="${idx}">${escapeHtml(row.org)}</span>
+            ${row.roadblocks ? '<span class="roadblock-flag" title="Roadblock noted">⚑</span>' : ''}
+          </div>
+          ${renderStatusSelect(idx, row.status)}
+        </div>
+        ${drawerHtml}
+      </div>`;
+    });
+
+    listRoot.innerHTML = html;
+    emptyMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+    renderTypeSidebar();
+    saveRosterData();
+    applyLockState();
+  }
+
+  // Roster filtering
+  const searchInput = document.getElementById('rosterSearch');
+  const emptyMsg = document.getElementById('rosterEmpty');
+  // Must be whichever type sorts first alphabetically — matches the sidebar's own
+  // default-selection convention (see the Roadmap lane chips for the same pattern).
+  let activeType = 'Title Agent';
+
+  searchInput.addEventListener('input', renderRosterList);
+
+  // Add Company: deliberately NOT gated by isLocked - unlike every other editable
+  // control on this dashboard, adding a new row to the roster should stay available
+  // even when the dashboard is locked, since it's an additive action rather than an
+  // edit to existing data. None of these elements' classes match anything in the
+  // body.locked CSS rules or applyLockState()'s selector list, so nothing needs to
+  // be special-cased there - this works by simply not being included.
+  const addCompanyBtn = document.getElementById('addCompanyBtn');
+  const addCompanyPopover = document.getElementById('addCompanyPopover');
+  const addCompanyNameInput = document.getElementById('addCompanyNameInput');
+  const addCompanyTypeSelect = document.getElementById('addCompanyTypeSelect');
+  const addCompanyError = document.getElementById('addCompanyError');
+  const addCompanyCancelBtn = document.getElementById('addCompanyCancelBtn');
+  const addCompanyConfirmBtn = document.getElementById('addCompanyConfirmBtn');
+
+  function closeAddCompanyPopover(){
+    addCompanyPopover.style.display = 'none';
+    addCompanyNameInput.value = '';
+    addCompanyError.style.display = 'none';
+  }
+
+  addCompanyBtn.addEventListener('click', () => {
+    const isOpen = addCompanyPopover.style.display === 'block';
+    if (isOpen){
+      closeAddCompanyPopover();
+    } else {
+      addCompanyTypeSelect.value = activeType;
+      addCompanyError.style.display = 'none';
+      addCompanyPopover.style.display = 'block';
+      addCompanyNameInput.focus();
+    }
+  });
+
+  addCompanyCancelBtn.addEventListener('click', closeAddCompanyPopover);
+
+  addCompanyConfirmBtn.addEventListener('click', () => {
+    const name = addCompanyNameInput.value.trim();
+    if (!name){
+      addCompanyError.textContent = 'Enter a company name';
+      addCompanyError.style.display = 'block';
+      addCompanyNameInput.focus();
+      return;
+    }
+    const chosenType = addCompanyTypeSelect.value;
+    rosterData.push({
+      type: chosenType, org: name, status: 'not-planned',
+      primaryContact: '', title: '', email: '', participants: '', notes: '', roadblocks: '', targetDate: ''
+    });
+    activeType = chosenType;
+    currentLane = ROSTER_TYPE_TO_LANE[activeType] || 'general';
+    editingTaskIdx = null;
+    hasUnsavedChanges = true;
+    saveSnapshotBtn.classList.add('has-changes');
+    closeAddCompanyPopover();
+    renderTypeSidebar();
+    renderGoalsStrip();
+    renderLane();
+    renderRosterList();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (addCompanyPopover.style.display === 'block' && !e.target.closest('.add-company-wrap')){
+      closeAddCompanyPopover();
+    }
+  });
+
+  // Combined click handling for the roster area: sidebar type navigation, row
+  // expand/collapse, and primary-contact edit/save/cancel all live here since they're
+  // all delegated (the rows and drawers they target are rebuilt on every render).
+  document.getElementById('rosterLayout').addEventListener('click', async (e) => {
+    const typeRow = e.target.closest('[data-type-select]');
+    if (typeRow){
+      activeType = typeRow.getAttribute('data-type-select');
+      currentLane = ROSTER_TYPE_TO_LANE[activeType] || 'general';
+      editingTaskIdx = null;
+      renderGoalsStrip();
+      renderLane();
+      renderRosterList();
+      return;
+    }
+
+    const summary = e.target.closest('.list-row-summary');
+    if (summary && !e.target.closest('[contenteditable="true"]') && !e.target.closest('select:not(:disabled)')){
+      const idx = parseInt(summary.getAttribute('data-toggle-idx'), 10);
+      if (expandedRowIndices.has(idx)) expandedRowIndices.delete(idx);
+      else expandedRowIndices.add(idx);
+      renderRosterList();
+      return;
+    }
+
+    const editBtn = e.target.closest('.contact-edit-btn[data-edit-idx]');
+    if (editBtn){
+      editingContactIdx = parseInt(editBtn.getAttribute('data-edit-idx'), 10);
+      renderRosterList();
+      return;
+    }
+    const saveBtn = e.target.closest('.contact-save-btn[data-save-idx]');
+    if (saveBtn){
+      const idx = parseInt(saveBtn.getAttribute('data-save-idx'), 10);
+      const cell = saveBtn.closest('.contact-edit-form');
+      const nameVal = cell.querySelector('[data-field="name"]').value.trim();
+      const titleVal = cell.querySelector('[data-field="title"]').value.trim();
+      const emailVal = cell.querySelector('[data-field="email"]').value.trim();
+      await ensureLoaded();
+      if (nameVal) rosterData[idx].primaryContact = nameVal;
+      rosterData[idx].title = titleVal;
+      rosterData[idx].email = emailVal;
+      editingContactIdx = null;
+      renderRosterList();
+      return;
+    }
+    const cancelBtn = e.target.closest('.contact-cancel-btn[data-cancel-idx]');
+    if (cancelBtn){
+      editingContactIdx = null;
+      renderRosterList();
+    }
+  });
+
+  // Type / Organization / Notes / Roadblocks are plain editable text — sync to the data
+  // model on blur so edits survive the next re-render (filtering, searching, expand/collapse).
+  document.getElementById('rosterLayout').addEventListener('blur', async (e) => {
+    const field = e.target.getAttribute && e.target.getAttribute('data-roster-field');
+    if (!field) return;
+    const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+    let val = e.target.tagName === 'INPUT' ? e.target.value.trim() : e.target.textContent.trim();
+    // Roadblocks shows "None noted" as its own empty-state text (not a real placeholder
+    // attribute) — clicking in and back out without changing anything shouldn't save that
+    // literal string as if it were a real roadblock.
+    if (field === 'roadblocks' && val === 'None noted') val = '';
+    await ensureLoaded();
+    rosterData[idx][field] = val;
+    renderRosterList();
+  }, true);
+
+  // Status changes: update the data model, then re-render — this naturally shows or hides
+  // the planned-date field in the drawer too, since that's computed from the current status
+  // on every render rather than toggled separately.
+  document.getElementById('rosterLayout').addEventListener('change', async (e) => {
+    if (e.target.matches('select.status-select.roster-status')){
+      const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+      const newStatus = e.target.value;
+      await ensureLoaded();
+      rosterData[idx].status = newStatus;
+      renderRosterList();
+      return;
+    }
+    if (e.target.matches('.roster-date-input')){
+      const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+      await ensureLoaded();
+      rosterData[idx].targetDate = e.target.value;
+      saveRosterData();
+    }
+  });
+
+  // Kept as a no-op so existing `await ensureLoaded()` call sites still work. Data is
+  // loaded once at boot (see bootstrapSharedData at the end of this script), not per edit.
+  async function ensureLoaded(){ return; }
+
+  currentLane = ROSTER_TYPE_TO_LANE[activeType] || 'general';
+  renderLane();
+  renderGoalsStrip();
+  renderRosterList();
+
+  // Stakeholder Groups "Critical?" dropdown: keep the star gold-colored when selected
+  document.querySelectorAll('.crit-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      sel.classList.toggle('is-star', sel.value === 'star');
+    });
+  });
+
+  // Leaderboard render
+  const leaderboardData = [];
+  const maxVal = Math.max(...leaderboardData.map(d => d[2]));
+  const lb = document.getElementById('leaderboard');
+  leaderboardData.forEach(([name, org, val]) => {
+    const row = document.createElement('div');
+    row.className = 'leaderboard-row';
+    row.innerHTML = `
+      <span class="who" title="${name}">${name}</span>
+      <span class="leaderboard-track"><span class="leaderboard-fill" style="width:${(val/maxVal*100).toFixed(1)}%"></span></span>
+      <span class="leaderboard-val">${val}</span>
+    `;
+    lb.appendChild(row);
+  });
+  // Calendar invite (.ics) download — computes the next Monday, 4-5 PM
+  function pad2(n){ return String(n).padStart(2, '0'); }
+
+  function findNextMeetingDate(){
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // CCS meets weekly on Mondays (weekday 1) — find the next one on or after today.
+    const dayOffset = (1 - today.getDay() + 7) % 7;
+    return new Date(today.getFullYear(), today.getMonth(), today.getDate() + dayOffset);
+  }
+
+  function icsLocalDateTime(date, hour, minute){
+    return date.getFullYear() + pad2(date.getMonth() + 1) + pad2(date.getDate()) + 'T' + pad2(hour) + pad2(minute) + '00';
+  }
+
+  function icsUTCNow(){
+    const d = new Date();
+    return d.getUTCFullYear() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate()) + 'T' + pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + 'Z';
+  }
+
+  const icsBtn = document.getElementById('icsDownloadBtn');
+  if (icsBtn){
+    icsBtn.addEventListener('click', () => {
+      const meetingDate = findNextMeetingDate();
+      const dtstart = icsLocalDateTime(meetingDate, 16, 0);
+      const dtend = icsLocalDateTime(meetingDate, 17, 0);
+      const workgroupName = document.querySelector('.workgroup-tag').textContent.trim();
+      const icsContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//MISMO Initiative Dashboard//EN',
+        'BEGIN:VEVENT',
+        'UID:ccs-recurring-meeting@initiative-dashboard', // stable per-dashboard UID so re-downloading updates the same calendar event instead of duplicating it
+        'DTSTAMP:' + icsUTCNow(),
+        'DTSTART;TZID=America/New_York:' + dtstart,
+        'DTEND;TZID=America/New_York:' + dtend,
+        'RRULE:FREQ=WEEKLY;BYDAY=MO',
+        'SUMMARY:' + workgroupName + ' Meeting',
+        'DESCRIPTION:Recurring workgroup meeting — weekly on Mondays.',
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].join('\r\n');
+      const blob = new Blob([icsContent], { type: 'text/calendar' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = workgroupName.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-meeting.ics';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+  }
+
+
+  // Work Product Deliverables: status dropdown drives the progress bar
+  const deliverableProgress = {
+    'notstarted': { width: '0%', color: 'transparent' },
+    'progress': { width: '55%', color: 'var(--amber)' },
+    'done': { width: '100%', color: 'var(--success)' }
+  };
+  document.querySelectorAll('.deliv-status-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const val = sel.value;
+      sel.className = 'deliv-pill deliv-status-select ' + val;
+      const row = sel.closest('tr');
+      const fill = row.querySelector('.deliv-progress-fill');
+      if (fill && deliverableProgress[val]){
+        fill.style.width = deliverableProgress[val].width;
+        fill.style.background = deliverableProgress[val].color;
+      }
+      const dateLabel = row.querySelector('.deliv-date-label');
+      if (dateLabel){
+        dateLabel.textContent = val === 'done' ? 'Published' : 'Expected Publication Date';
+      }
+    });
+  });
+
+  const GENERIC_FIELD_EXCLUDE = '#rosterLayout';
+
+  // Computes a key for a generic-captured element that's stable across page structure
+  // changes elsewhere on the page, without requiring a data-field-id on every single
+  // element (there are 50+ of them). Scoped to the nearest ancestor section/div with an
+  // id, then indexed only among same-tag siblings within that same scope. Deliberately
+  // does NOT include className: some elements (e.g. deliv-status-select) get a dynamic,
+  // value-dependent class added/removed as their own value changes, which would make the
+  // key computed at save time differ from the key computed at restore time on a fresh
+  // page load. A future deploy that adds/removes/reorders a field in one section no
+  // longer misaligns saved values for fields in every other section - only a change to
+  // the count of same-tag elements within the SAME section could still shift things,
+  // which is a much narrower and less likely case than the previous global indexing.
+  function computeStableFieldKey(el, sameKindEls){
+    const scopeEl = el.closest('section[id], div[id]') || document.body;
+    const scopeId = scopeEl.id || 'body';
+    const tag = el.tagName.toLowerCase();
+    const siblingsInScope = sameKindEls.filter(e => scopeEl.contains(e));
+    const idx = siblingsInScope.indexOf(el);
+    return `${scopeId}::${tag}::${idx}`;
+  }
+
+  function captureGenericFieldStates(){
+    const isExcluded = (el) => el.closest(GENERIC_FIELD_EXCLUDE) !== null;
+    const editableEls = [...document.querySelectorAll('[contenteditable="true"], [contenteditable="false"]')]
+      .filter(el => !isExcluded(el) && el.hasAttribute('data-roster-field') === false)
+      .filter(el => !el.parentElement || el.parentElement.closest('[contenteditable]') === null); // only outermost editable regions, skip nested spans
+    const editable = {};
+    editableEls.forEach(el => { editable[computeStableFieldKey(el, editableEls)] = el.innerHTML; });
+
+    const selectEls = [...document.querySelectorAll('select')].filter(el => !isExcluded(el));
+    const selects = {};
+    selectEls.forEach(el => { selects[computeStableFieldKey(el, selectEls)] = el.value; });
+
+    const dateEls = [...document.querySelectorAll('input[type="date"]')].filter(el => !isExcluded(el));
+    const dates = {};
+    dateEls.forEach(el => { dates[computeStableFieldKey(el, dateEls)] = el.value; });
+
+    return { editable, selects, dates };
+  }
+
+  let isRestoring = false;
+  function applyGenericFieldStates(state){
+    if (!state) return;
+    isRestoring = true;
+    const isExcluded = (el) => el.closest(GENERIC_FIELD_EXCLUDE) !== null;
+    const editableEls = [...document.querySelectorAll('[contenteditable="true"], [contenteditable="false"]')]
+      .filter(el => !isExcluded(el) && el.hasAttribute('data-roster-field') === false)
+      .filter(el => !el.parentElement || el.parentElement.closest('[contenteditable]') === null);
+    editableEls.forEach(el => {
+      const key = computeStableFieldKey(el, editableEls);
+      // Sanitised: this state may have come from the committed file, i.e. from someone
+      // else's browser. See sanitizeHtml in dashboard-data.js for why that matters now.
+      if (state.editable && state.editable[key] !== undefined) el.innerHTML = MismoStore.sanitizeHtml(state.editable[key]);
+    });
+
+    const selectEls = [...document.querySelectorAll('select')].filter(el => !isExcluded(el));
+    selectEls.forEach(el => {
+      const key = computeStableFieldKey(el, selectEls);
+      if (state.selects && state.selects[key] !== undefined){
+        el.value = state.selects[key];
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    const dateEls = [...document.querySelectorAll('input[type="date"]')].filter(el => !isExcluded(el));
+    dateEls.forEach(el => {
+      const key = computeStableFieldKey(el, dateEls);
+      if (state.dates && state.dates[key] !== undefined) el.value = state.dates[key];
+    });
+    isRestoring = false;
+  }
+
+  const saveSnapshotBtn = document.getElementById('saveSnapshotBtn');
+  // Track unsaved changes: any edit, anywhere, flips the Save button to an
+  // "unsaved changes" state until the user actually clicks Save. Typing in the
+  // roster search box filters the view but isn't an edit, so it's excluded.
+  let hasUnsavedChanges = false;
+  function markDirty(e){
+    if (e.target && e.target.id === 'rosterSearch') return;
+    if (isRestoring) return;
+    if (hasUnsavedChanges) return;
+    hasUnsavedChanges = true;
+    saveSnapshotBtn.classList.add('has-changes');
+  }
+  document.addEventListener('input', markDirty, true);
+  document.addEventListener('change', markDirty, true);
+
+  // Same flag, callable without an event — the data-model save hooks use this.
+  function flagUnsaved(){
+    if (isRestoring || hasUnsavedChanges) return;
+    hasUnsavedChanges = true;
+    saveSnapshotBtn.classList.add('has-changes');
+  }
+
+  saveSnapshotBtn.addEventListener('click', async () => {
+    // Org name, notes, roadblocks, type, and pills only reach the data model on
+    // blur. Clicking Save normally blurs whatever was focused as a side effect -
+    // except in macOS Safari, where buttons don't take focus on click, so an
+    // in-progress edit could otherwise be saved before it's synced. Force it -
+    // then yield to the event loop, since the blur handler itself is async
+    // (it awaits ensureLoaded()) and its data-model update wouldn't otherwise
+    // complete before this handler's synchronous code continues past this point.
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const label = saveSnapshotBtn.querySelector('.save-label');
+    const originalLabel = label.textContent;
+    try {
+      const snapshot = {
+        rosterData: rosterData,
+        laneData: laneData,
+        generic: captureGenericFieldStates()
+      };
+
+      // Saving commits to the repository, so it is visible to everyone rather than to
+      // this browser. Without a token the page is still fully editable — the work is
+      // just held locally until one is added.
+      if (!MismoStore.hasToken()) {
+        if (!MismoStore.promptForToken() || !MismoStore.hasToken()) {
+          label.textContent = 'Not saved';
+          try { localStorage.setItem('resources:hub:title-order:draft', JSON.stringify(snapshot)); } catch (e2) {}
+          alert(MismoStore.explain('NO_TOKEN'));
+          throw new Error('handled');
+        }
+      }
+
+      label.textContent = 'Saving…';
+      const result = await MismoStore.save(snapshot);
+
+      if (result.ok) {
+        hasUnsavedChanges = false;
+        saveSnapshotBtn.classList.remove('has-changes');
+        saveSnapshotBtn.classList.add('just-saved');
+        label.textContent = 'Saved';
+        // The commit is the record now, so a stale local draft would only be confusing.
+        try { localStorage.removeItem('resources:hub:title-order:draft'); } catch (e2) {}
+        document.getElementById('restoreBanner').style.display = 'none';
+      } else {
+        // Keep the work somewhere. The restore banner picks this up on the next load,
+        // so a failed save plus an accidental refresh doesn't lose an afternoon.
+        try { localStorage.setItem('resources:hub:title-order:draft', JSON.stringify(snapshot)); } catch (e2) {}
+        label.textContent = 'Not saved';
+        alert(MismoStore.explain(result.reason));
+      }
+    } catch (e) {
+      if (e && e.message !== 'handled') {
+        label.textContent = 'Not saved';
+        alert(MismoStore.explain('NETWORK'));
+      }
+    }
+    setTimeout(() => {
+      saveSnapshotBtn.classList.remove('just-saved');
+      label.textContent = originalLabel;
+    }, 1800);
+  });
+
+  // Show the "you have a saved snapshot" banner if one already existed when this
+  // page loaded (cheap check). The restore button's own listener is always attached
+  // below, independent of this — so restoring also works if you save and then want
+  // to restore again later in the same session, without needing a page reload first.
+  (function(){
+    let savedSnapshotRaw;
+    try {
+      savedSnapshotRaw = localStorage.getItem('resources:hub:title-order:draft');
+    } catch (e) {
+      return;
+    }
+    if (!savedSnapshotRaw) return;
+    document.getElementById('restoreBanner').style.display = 'flex';
+  })();
+
+  document.getElementById('restoreBtn').addEventListener('click', () => {
+    const banner = document.getElementById('restoreBanner');
+    let savedSnapshotRaw;
+    try {
+      savedSnapshotRaw = localStorage.getItem('resources:hub:title-order:draft');
+    } catch (e) {
+      alert('Could not read saved data — this browser may be blocking local storage.');
+      return;
+    }
+    if (!savedSnapshotRaw) return;
+    let snapshot;
+    try {
+      snapshot = JSON.parse(savedSnapshotRaw);
+    } catch (e) {
+      alert('This saved snapshot is unreadable and can\'t be restored.');
+      return;
+    }
+    if (Array.isArray(snapshot.rosterData)) rosterData = snapshot.rosterData;
+    // Merged, not assigned — same reason as loadSharedData: a draft can predate a lane
+    // that exists now, and renderLane() throws on a missing key.
+    if (snapshot.laneData && typeof snapshot.laneData === 'object') {
+      Object.keys(snapshot.laneData).forEach(function(k){
+        var v = snapshot.laneData[k] || {};
+        laneData[k] = {
+          goals:      Array.isArray(v.goals)      ? v.goals      : [],
+          roadblocks: Array.isArray(v.roadblocks) ? v.roadblocks : [],
+          actions:    Array.isArray(v.actions)    ? v.actions    : []
+        };
+      });
+      Object.keys(laneLabels).forEach(function(k){
+        if (!laneData[k]) laneData[k] = { goals: [], roadblocks: [], actions: [] };
+      });
+    }
+    renderTypeSidebar();
+    renderLane();
+    renderGoalsStrip();
+    renderRosterList();
+    applyGenericFieldStates(snapshot.generic);
+    applyLockState();
+    banner.style.display = 'none';
+    // A draft is, by definition, not committed. Before this change a restore WAS the saved
+    // state, so leaving it clean was right; now it must show as unsaved or the Save button
+    // gives no signal and closing the tab loses it silently.
+    hasUnsavedChanges = false;   // reset first so flagUnsaved()'s early-return doesn't skip it
+    flagUnsaved();
+  });
+  document.getElementById('dismissRestoreBtn').addEventListener('click', () => {
+    document.getElementById('restoreBanner').style.display = 'none';
+  });
+
+  // Load the committed data once, for every visitor. Runs after the initial render so the
+  // page paints defaults immediately rather than waiting on the network, then repaints if
+  // saved data comes back. hasLoadedFromStorage only flips once the read has actually
+  // finished — an unreadable file must not be mistaken for an empty one, or the next save
+  // would commit defaults over real data.
+  // Every <option> whose value is a type key shows that key's current display name.
+  // Values stay as keys — that's what the code and the saved data use.
+  function relabelTypeOptions(){
+    document.querySelectorAll('select.type-select option, #addCompanyTypeSelect option').forEach(function(o){
+      o.textContent = MismoStore.typeName(o.value);
+    });
+  }
+
+  (async function bootstrapSharedData(){
+    // Display names and saved data load in parallel; neither blocks first paint.
+    const [ , { rosterFound, laneFound } ] = await Promise.all([ MismoStore.types.load(), loadSharedData() ]);
+    relabelTypeOptions();
+    if (rosterFound || laneFound) {
+      // The saved roster may not contain the type the page defaulted to, which would leave
+      // the sidebar with no active row and the list empty. Re-derive it the same way the
+      // initial render does: first type that has organizations, else first approved type.
+      const present = [...new Set(rosterData.map(r => r.type))].sort((a, b) => a.localeCompare(b));
+      const approved = Object.keys(ROSTER_TYPE_TO_LANE).sort((a, b) => a.localeCompare(b));
+      // Prefer a type that actually has organizations. An approved type with none is a
+      // valid selection, but opening onto an empty panel after a load is not useful.
+      if (!present.includes(activeType)) activeType = present[0] || approved[0];
+      currentLane = ROSTER_TYPE_TO_LANE[activeType] || currentLane;
+      renderTypeSidebar();   // counts come from the roster, so they are stale until this runs
+      renderLane();
+      renderGoalsStrip();
+      renderRosterList();
+    }
+    if (!(rosterFound || laneFound)) {
+      // No saved data, but the display names may differ from the keys — repaint the two
+      // places that show them.
+      renderTypeSidebar();
+      renderLane();
+      renderGoalsStrip();   // the heading above the roster is set here, not in renderLane()
+    }
+    if (pendingGenericState) {
+      applyGenericFieldStates(pendingGenericState);
+      pendingGenericState = null;
+    }
+    applyLockState();
+
+    // Only now does an edit count as an edit. Setting this earlier lets the re-render above
+    // trip the dirty flag, so the page would open claiming unsaved changes before anyone
+    // touched it — and the beforeunload prompt would fire on a plain visit.
+    hasLoadedFromStorage = true;
+    hasUnsavedChanges = false;
+    saveSnapshotBtn.classList.remove('has-changes');
+  })();
+
+  // Leaving with unsaved edits is the one way work is still lost, so say so.
+  window.addEventListener('beforeunload', function (e) {
+    if (!hasUnsavedChanges) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+</script>
+
+</body>
+</html>
