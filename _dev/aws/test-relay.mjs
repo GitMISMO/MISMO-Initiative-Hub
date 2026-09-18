@@ -513,3 +513,46 @@ facCacheBust();
 hubFac = facFile = { facilitators: [] };
 r = await asKey('anyone@mismo.org:whatever');
 ok('no admin at all -> refused, not allowed through', r.statusCode!==200);
+
+/* ---------- the panel writes pbkdf2 entries with emails ---------- */
+facCacheBust();
+hubFac = facFile = {
+  admins: [ { name:'Perry Williams', email:'pwilliams@mba.org', hash: mkHash('perry-password') } ],
+  facilitators: []
+};
+const ADMIN = 'pwilliams@mba.org:perry-password';
+const putFac = (facilitators, sha) => handler({
+  rawPath:'/hub/facilitators', requestContext:{http:{method:'PUT'}},
+  headers:{ origin:'https://org.github.io', 'x-facilitator-key':ADMIN, 'content-type':'application/json' },
+  body: JSON.stringify({ facilitators, sha })
+});
+
+r = await putFac([{ name:'New Person', email:'new@mismo.org', hash: mkHash('their-password') }]);
+ok('a pbkdf2 entry with an email is accepted', r.statusCode===200);
+
+r = await putFac([{ name:'Legacy', hash: h('old-passcode') }]);
+ok('a legacy sha256 entry still round-trips', r.statusCode===200);
+
+r = await putFac([{ name:'Bad Hash', email:'b@mismo.org', hash:'not-a-hash' }]);
+ok('a malformed hash is rejected', r.statusCode===400 && J(r).error==='BAD_HASH');
+
+r = await putFac([{ name:'No At Sign', email:'notanemail', hash: mkHash('x') }]);
+ok('an email without @ is rejected', r.statusCode===400 && J(r).error==='BAD_EMAIL');
+
+r = await putFac([
+  { name:'One', email:'same@mismo.org', hash: mkHash('a') },
+  { name:'Two', email:'SAME@mismo.org', hash: mkHash('b') }
+]);
+ok('two accounts cannot share an email, whatever the case', r.statusCode===400 && J(r).error==='DUPLICATE_EMAIL');
+
+// an email is optional, so an older entry without one is not forced to invent one
+r = await putFac([{ name:'No Email Yet', hash: mkHash('x') }]);
+ok('the email is optional', r.statusCode===200);
+
+// a facilitator must not be able to write the list at all
+r = await handler({
+  rawPath:'/hub/facilitators', requestContext:{http:{method:'PUT'}},
+  headers:{ origin:'https://org.github.io', 'x-facilitator-key':'New Person:their-password', 'content-type':'application/json' },
+  body: JSON.stringify({ facilitators: [] })
+});
+ok('a non-admin cannot write the facilitator list', r.statusCode===403 || r.statusCode===401);

@@ -17,7 +17,7 @@
 
   Renames reach the dashboards when the site next deploys, about a minute after saving.
 -->
-<script src="dashboard-data.js?v=d928f319eb"></script>
+<script src="dashboard-data.js?v=384128a959"></script>
 <style>
   :root { --navy:#0b1a33; --brand:#1d4ed8; --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --bg:#f6f7f9; --ok:#166534; --okbg:#dcfce7; --warn:#7c2d12; --warnbg:#fff7ed; --warnline:#fed7aa; --err:#991b1b; --errbg:#fee2e2; }
   * { box-sizing:border-box; }
@@ -42,6 +42,19 @@
   button.small { padding:5px 9px; font-size:12px; }
   button:disabled { opacity:.45; cursor:default; }
   .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:14px; }
+  /* The people table, matching the approved design: an avatar, the name over the email,
+     and a role pill. Per-application access columns are deliberately absent — they belong
+     to access.json, which nothing reads for passcode authentication, so showing them now
+     would present controls that do not control anything. They arrive with sign-in. */
+  .who { display:flex; align-items:center; gap:10px; }
+  .av { width:28px; height:28px; border-radius:50%; flex:0 0 auto; display:flex; align-items:center;
+        justify-content:center; font-size:10px; font-weight:700; background:var(--navy); color:#fff; }
+  .nm { font-size:13.5px; font-weight:600; display:block; }
+  .em { font-size:11.5px; color:var(--muted); display:block; margin-top:1px; }
+  .em.none { font-style:italic; color:#9A6A00; }
+  .rolepill { display:inline-flex; align-items:center; height:23px; padding:0 10px; border-radius:999px;
+              font-size:11.5px; font-weight:600; background:#E7EAF1; color:#4C5468; border:1px solid #D3D8E3; }
+
   .tab { padding:9px 14px; font-size:13.5px; font-weight:600; color:var(--muted); background:none; border:none; border-bottom:2px solid transparent; border-radius:0; cursor:pointer; }
   .tab.active { color:var(--navy); border-bottom-color:var(--navy); }
   table { width:100%; border-collapse:collapse; font-size:13.5px; }
@@ -95,21 +108,22 @@
     <!-- ----- facilitators ----- -->
     <section id="tab-fac">
       <div class="card">
-        <h2>Facilitators</h2>
-        <p class="hint">People who can save dashboards. Their display name becomes the author on their saves. Removing someone takes effect on their next save.</p>
+        <h2>People</h2>
+        <p class="hint">Everyone who can save. Their name becomes the author on their commits, so a save is always attributable. Removing someone takes effect on their next save — a save already in flight is not interrupted.</p>
         <table id="facTable">
-          <thead><tr><th>Name</th><th>Expires</th><th></th></tr></thead>
+          <thead><tr><th>Person</th><th>Access</th><th>Expires</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
         <div class="note warn hidden" id="facEmpty">No facilitators yet. Add the first one below.</div>
       </div>
       <div class="card">
-        <h2>Add a facilitator</h2>
-        <p class="hint">A passcode is generated for them and shown once. Copy it and pass it on; it can't be looked up afterwards.</p>
+        <h2>Add a person</h2>
+        <p class="hint">A password is generated here and shown once. Only its hash is stored, so it cannot be looked up afterwards — if it is lost, reset it and send a new one.</p>
         <div class="row">
-          <div><label for="facName">Display name</label><input type="text" id="facName" placeholder="Jane Facilitator"></div>
-          <div><label for="facExp">Expires (optional)</label><input type="date" id="facExp"></div>
-          <button id="facAdd">Add and generate passcode</button>
+          <div><label for="facName">Full name</label><input type="text" id="facName" placeholder="Meghan Tidgewell"></div>
+          <div><label for="facEmail">MISMO email — used to sign in</label><input type="email" id="facEmail" placeholder="meghan@mismo.org"></div>
+          <div><label for="facExp">Access expires (optional)</label><input type="date" id="facExp"></div>
+          <button id="facAdd">Create account</button>
         </div>
         <div class="note err hidden" id="facErr"></div>
       </div>
@@ -223,15 +237,21 @@
   window.addEventListener('beforeunload', e => { if (fac.dirty || types.dirty) { e.preventDefault(); e.returnValue = ''; } });
 
   /* ---------- facilitators ---------- */
-  function applyFac(r){ fac = { sha:r.sha, admin:r.admin, list:(r.facilitators||[]).map(f => ({...f})), dirty:false }; }
+  function applyFac(r){ fac = { sha:r.sha, admin:r.admin, admins:r.admins || (r.admin ? [r.admin] : []), list:(r.facilitators||[]).map(f => ({...f})), dirty:false }; }
   function renderFac(){
     const tb = $('facTable').querySelector('tbody');
     tb.innerHTML = fac.list.map((f, i) => `
       <tr>
-        <td><strong>${esc(f.name)}</strong></td>
+        <td>
+          <span class="who">
+            <span class="av">${esc(MismoStore.initials(f.name))}</span>
+            <span><span class="nm">${esc(f.name)}</span>${f.email ? `<span class="em">${esc(f.email)}</span>` : '<span class="em none">no email — cannot sign in once passcodes are retired</span>'}</span>
+          </span>
+        </td>
+        <td><span class="rolepill staff">Staff</span></td>
         <td><input type="date" class="inline" data-exp="${i}" value="${esc(f.expires || '')}"></td>
         <td class="actions">
-          <button class="secondary small" data-reset="${i}">Reset passcode</button>
+          <button class="secondary small" data-reset="${i}">Reset password</button>
           <button class="danger small" data-remove="${i}">Remove</button>
         </td>
       </tr>`).join('');
@@ -245,7 +265,7 @@
     if (rs) {
       const f = fac.list[+rs.dataset.reset];
       const code = S.facilitators.generatePasscode();
-      f.hash = await S.facilitators.sha256Hex(code);
+      f.hash = await S.facilitators.pbkdf2Hash(code);
       reveal(f.name, code); markFac();
     }
     if (rm) {
@@ -262,14 +282,19 @@
   $('facAdd').addEventListener('click', async () => {
     showErr('facErr');
     const name = $('facName').value.trim();
-    if (!name) return showErr('facErr', 'A display name is needed.');
-    if (fac.admin && name === fac.admin.name) return showErr('facErr', 'That is the admin name; it cannot also be a facilitator.');
-    if (fac.list.some(f => f.name === name)) return showErr('facErr', 'There is already a facilitator with that name.');
+    const email = $('facEmail').value.trim().toLowerCase();
+    if (!name) return showErr('facErr', 'A full name is needed.');
+    if (!email || !email.includes('@')) return showErr('facErr', 'A MISMO email is needed — it is what they sign in with.');
+    /* The admin list and the facilitator list are searched together when a credential is
+       resolved, so a duplicate name or email would make the winner depend on ordering. */
+    if ((fac.admins || []).some(a => a.name === name)) return showErr('facErr', 'That name belongs to an administrator and cannot also be a facilitator.');
+    if (fac.list.some(f => f.name === name)) return showErr('facErr', 'There is already someone with that name.');
+    if (fac.list.some(f => (f.email || '').toLowerCase() === email)) return showErr('facErr', 'There is already an account with that email.');
     const code = S.facilitators.generatePasscode();
-    const entry = { name, hash: await S.facilitators.sha256Hex(code) };
+    const entry = { name, email, hash: await S.facilitators.pbkdf2Hash(code) };
     if ($('facExp').value) entry.expires = $('facExp').value;
     fac.list.push(entry);
-    $('facName').value = ''; $('facExp').value = '';
+    $('facName').value = ''; $('facEmail').value = ''; $('facExp').value = '';
     reveal(name, code); markFac();
   });
   $('facReload').addEventListener('click', async () => {

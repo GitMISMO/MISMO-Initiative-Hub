@@ -471,13 +471,34 @@
     for (var i = 0; i < bytes.length; i++) { out += ALPHABET[bytes[i] % ALPHABET.length]; if ((i + 1) % 5 === 0 && i < bytes.length - 1) out += '-'; }
     return out;
   }
+  /* PBKDF2-HMAC-SHA256, matching what the relay verifies. Stored as
+     "pbkdf2$<iterations>$<salt-hex>$<hash-hex>".
+
+     Replaces the bare SHA-256 below, which was only ever safe because the passcode was
+     generated here at high entropy. A per-account random salt and a high iteration count
+     mean a copy of the file is not usefully crackable even if a person picks their own
+     password later. Computed in the browser, so no password reaches the relay or the
+     repository — only this hash does. */
+  var PBKDF2_ITERATIONS = 210000;
+  function toHex(buf) {
+    return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+  async function pbkdf2Hash(password) {
+    var salt = new Uint8Array(16);
+    crypto.getRandomValues(salt);
+    var key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    var bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, key, 256);
+    return 'pbkdf2$' + PBKDF2_ITERATIONS + '$' + toHex(salt) + '$' + toHex(bits);
+  }
+
   async function sha256Hex(text) {
     var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
     return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
   }
 
   window.MismoStore = {
-    facilitators: { get: facilitatorsGet, put: facilitatorsPut, generatePasscode: generatePasscode, sha256Hex: sha256Hex },
+    facilitators: { get: facilitatorsGet, put: facilitatorsPut, generatePasscode: generatePasscode, sha256Hex: sha256Hex, pbkdf2Hash: pbkdf2Hash },
     config: { get: configGet, put: configPut },
     initials: initialsOf,
     potential: { list: potentialList, get: potentialGet, put: potentialPut, validate: potentialValidate, slug: potentialSlug,

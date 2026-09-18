@@ -98,7 +98,9 @@ const CONFIG_FILES = {
     }
   }
 };
-const SHA256_HEX = /^[0-9a-f]{64}$/;
+const SHA256_HEX = /^[a-f0-9]{64}$/;
+const PBKDF2_STORED = /^pbkdf2\$\d{4,}\$[a-f0-9]{16,}\$[a-f0-9]{64}$/;
+const isStoredHash = (h) => PBKDF2_STORED.test(h) || SHA256_HEX.test(h);
 const POTENTIAL_INDEX = 'data/potential/index.json';
 const STAGES = new Set(['not-started', 'in-progress', 'in-approvals', 'kickoff-set', 'launched']);
 const ENGAGEMENTS = new Set(['not-contacted', 'declined', 'contacted', 'interested', 'committed']);
@@ -916,14 +918,16 @@ export async function handler(event) {
   if (method === 'GET') {
     const list = await loadFacilitators(repo, branch, { fresh: true });
     if (list.error) return respond(502, { error: 'FACILITATORS_UNREADABLE' });
-    // Hashes are included: the panel replaces the whole list on save and must resend the
-    // entries it did not change. The file is public, so nothing is exposed here that
-    // isn't already. The admin's own hash is still withheld — the panel never writes it.
+    // Hashes are included because the panel replaces the whole list on save and must
+    // resend the entries it did not change. They are pbkdf2 at 210,000 iterations, so a
+    // copy is not usefully crackable, and this route is admin-only. The file itself is no
+    // longer web-served — it moved to _internal/ so GitHub Pages does not publish it.
+    // Admins' hashes are still withheld: the panel never writes the admin list.
     return respond(200, {
       sha: list.sha,
       admin: list.adminList.length ? { name: list.adminList[0].name } : null,
       admins: list.adminList.map(a => ({ name: a.name })),
-      facilitators: list.facilitators.map(f => ({ name: f.name, hash: f.hash, expires: f.expires || null }))
+      facilitators: list.facilitators.map(f => ({ name: f.name, email: f.email || '', hash: f.hash, expires: f.expires || null }))
     });
   }
 
@@ -941,10 +945,22 @@ export async function handler(event) {
       const name = typeof f?.name === 'string' ? f.name.trim() : '';
       const hash = typeof f?.hash === 'string' ? f.hash.trim().toLowerCase() : '';
       if (!name || name.length > 80) return respond(400, { error: 'BAD_NAME', name });
-      if (!SHA256_HEX.test(hash)) return respond(400, { error: 'BAD_HASH', name });
+      /* pbkdf2$<iterations>$<salt>$<hash> is the current format. A bare SHA-256 is still
+       * accepted so entries predating the change can be resent unmodified by the panel,
+       * which sends back every row including ones it did not touch. */
+      if (!isStoredHash(hash)) return respond(400, { error: 'BAD_HASH', name });
       if (seen.has(name)) return respond(400, { error: 'DUPLICATE_NAME', name });
       seen.add(name);
       const entry = { name, hash };
+      /* Optional so an older entry without one still round-trips. Lower-cased because
+       * sign-in matches case-insensitively and storing it mixed would be misleading. */
+      if (f.email) {
+        const email = String(f.email).trim().toLowerCase();
+        if (email.length > 160 || !email.includes('@')) return respond(400, { error: 'BAD_EMAIL', name });
+        if (seen.has(email)) return respond(400, { error: 'DUPLICATE_EMAIL', name });
+        seen.add(email);
+        entry.email = email;
+      }
       if (f.expires) {
         if (!Number.isFinite(Date.parse(f.expires))) return respond(400, { error: 'BAD_EXPIRES', name });
         entry.expires = f.expires;
