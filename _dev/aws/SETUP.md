@@ -75,6 +75,27 @@ Configuration → Environment variables:
 | `PROJECTS_BRANCH` | `main` *(optional, defaults to `main`)* |
 | `PROJECTS_PATH` | `_internal/projects.json` |
 | `AUTH_SECRET` | a long random string, generated once |
+
+### facilitators.json shape
+
+Two shapes are accepted. Use `admins`:
+
+```json
+{
+  "admins": [
+    { "name": "…", "email": "…", "hash": "pbkdf2$…" }
+  ],
+  "facilitators": []
+}
+```
+
+The older single `admin` object still works, so an existing file does not need
+rewriting, and saving facilitators writes back in whichever shape the file already
+used rather than silently converting it.
+
+Admins can manage accounts as well as save; facilitators can only save. An admin's
+name cannot be reused for a facilitator — both lists are searched together, so a
+duplicate name would make the winner depend on ordering.
 | `ACCESS_PATH` | `_internal/access.json` *(optional, this is the default)* |
 
 `AUTH_SECRET` signs session tokens. Generate it with `openssl rand -base64 48` and treat it

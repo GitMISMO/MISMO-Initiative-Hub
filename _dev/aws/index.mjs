@@ -385,7 +385,15 @@ async function loadFacilitators(repo, branch, { fresh = false } = {}) {
   const file = await readFile(repo, branch, FACILITATORS_PATH);
   const value = {
     sha: file.sha,
+    /* Two shapes are accepted. 'admins' is an array and is the one to use; 'admin' is a
+     * single object kept working so an existing file does not have to be rewritten.
+     * Everything downstream reads adminList, so the rest of the relay does not care
+     * which shape the file used. */
     admin: file.data?.admin || null,
+    rawAdmins: Array.isArray(file.data?.admins) ? file.data.admins : null,
+    adminList: Array.isArray(file.data?.admins)
+      ? file.data.admins
+      : (file.data?.admin ? [file.data.admin] : []),
     facilitators: Array.isArray(file.data?.facilitators) ? file.data.facilitators : [],
     missing: file.status === 404,
     error: file.status !== 200 && file.status !== 404 ? (file.corrupt ? 'CORRUPT' : `HTTP ${file.status}`) : null
@@ -536,7 +544,7 @@ async function roleFromFacilitators(repo, branch, email) {
   if (list.error) return { error: 'FACILITATORS_UNREADABLE' };
   const id = String(email).trim().toLowerCase();
   const candidates = [];
-  if (list.admin) candidates.push({ ...list.admin, role: 'admin' });
+  for (const a of list.adminList) candidates.push({ ...a, role: 'admin' });
   for (const f of list.facilitators) candidates.push({ ...f, role: 'staff' });
   for (const c of candidates) {
     const matches = (c.email && c.email.toLowerCase() === id) || (c.name && c.name.toLowerCase() === id);
@@ -556,7 +564,7 @@ async function findAccount(repo, branch, identifier, password) {
   if (list.error) return { error: 'FACILITATORS_UNREADABLE' };
 
   const candidates = [];
-  if (list.admin) candidates.push({ ...list.admin, role: 'admin' });
+  for (const a of list.adminList) candidates.push({ ...a, role: 'admin' });
   for (const f of list.facilitators) candidates.push({ ...f, role: 'staff' });
 
   const id = String(identifier).trim().toLowerCase();
@@ -913,7 +921,8 @@ export async function handler(event) {
     // isn't already. The admin's own hash is still withheld — the panel never writes it.
     return respond(200, {
       sha: list.sha,
-      admin: list.admin ? { name: list.admin.name } : null,
+      admin: list.adminList.length ? { name: list.adminList[0].name } : null,
+      admins: list.adminList.map(a => ({ name: a.name })),
       facilitators: list.facilitators.map(f => ({ name: f.name, hash: f.hash, expires: f.expires || null }))
     });
   }
@@ -946,12 +955,20 @@ export async function handler(event) {
     // The admin entry is carried over from the current file, never taken from the body.
     const current = await loadFacilitators(repo, branch, { fresh: true });
     if (current.error) return respond(502, { error: 'FACILITATORS_UNREADABLE' });
-    if (!current.admin) return respond(500, { error: 'NO_ADMIN', message: 'facilitators.json has no admin entry; fix it directly in the repository.' });
-    if (clean.some(f => f.name === current.admin.name)) return respond(400, { error: 'ADMIN_NAME_RESERVED', name: current.admin.name });
+    if (!current.adminList.length) return respond(500, { error: 'NO_ADMIN', message: 'facilitators.json has no admin entry; fix it directly in the repository.' });
+    /* An admin's name cannot be reused for a facilitator: the two lists are searched
+     * together, so a duplicate name would make which record wins depend on ordering. */
+    const clash = current.adminList.find(a => clean.some(f => f.name === a.name));
+    if (clash) return respond(400, { error: 'ADMIN_NAME_RESERVED', name: clash.name });
 
     const { status, json } = await github('PUT', `/repos/${repo}/contents/${FACILITATORS_PATH}`, {
       message: `Update facilitators (by ${who.name})`,
-      content: encodeBase64Utf8({ admin: current.admin, facilitators: clean }),
+      /* Write back in whichever shape the file already used, so saving facilitators does
+       * not silently rewrite an unrelated part of the file. */
+      content: encodeBase64Utf8(
+        Array.isArray(current.rawAdmins)
+          ? { admins: current.adminList, facilitators: clean }
+          : { admin: current.adminList[0], facilitators: clean }),
       branch,
       sha: body.sha || undefined,
       author: authorFor(who.name)

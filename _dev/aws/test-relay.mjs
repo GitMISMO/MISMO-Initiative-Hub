@@ -466,3 +466,50 @@ r = await login({ email:'jane@mismo.org', password:'correct-horse-battery' });
 ok('an unreadable directory fails loudly rather than letting anyone in',
    r.statusCode===502 && J(r).error==='DIRECTORY_UNREADABLE');
 accessStatus = 200; accessBust();
+
+/* ---------- more than one admin ---------- */
+facCacheBust();
+hubFac = facFile = {
+  admins: [
+    { name:'Perry Williams',  email:'pwilliams@mba.org',    hash: mkHash('perry-password') },
+    { name:'Jonna Critchley', email:'jcritchley@mismo.org', hash: mkHash('jonna-password') }
+  ],
+  facilitators: [ { name:'Sam Staff', email:'sam@mismo.org', hash: mkHash('sam-password') } ]
+};
+
+const asKey = (k, path='/data/mcd', method='GET') => handler({
+  rawPath:'/hub'+path, requestContext:{http:{method}},
+  headers:{ origin:'https://org.github.io', 'x-facilitator-key':k }
+});
+
+r = await asKey('pwilliams@mba.org:perry-password');
+ok('first admin authenticates', r.statusCode===200);
+r = await asKey('jcritchley@mismo.org:jonna-password');
+ok('SECOND admin authenticates too', r.statusCode===200);
+r = await asKey('sam@mismo.org:sam-password');
+ok('a facilitator still authenticates', r.statusCode===200);
+r = await asKey('jcritchley@mismo.org:wrong');
+ok('second admin with a wrong password is refused', r.statusCode===401);
+
+// the admin-only route must accept both admins and refuse staff
+const adminRoute = (k) => asKey(k, '/facilitators');
+ok('first admin reaches an admin-only route',  (await adminRoute('pwilliams@mba.org:perry-password')).statusCode===200);
+ok('second admin reaches it as well',          (await adminRoute('jcritchley@mismo.org:jonna-password')).statusCode===200);
+const staffTry = await adminRoute('sam@mismo.org:sam-password');
+ok('a facilitator is refused there', staffTry.statusCode===403 || staffTry.statusCode===401);
+
+// the single-admin shape must keep working untouched
+facCacheBust();
+hubFac = facFile = {
+  admin: { name:'Solo Admin', email:'solo@mismo.org', hash: mkHash('solo-password') },
+  facilitators: []
+};
+r = await asKey('solo@mismo.org:solo-password');
+ok('the old single-admin shape still works', r.statusCode===200);
+ok('and still reaches admin-only routes', (await adminRoute('solo@mismo.org:solo-password')).statusCode===200);
+
+// a file with neither shape must fail closed
+facCacheBust();
+hubFac = facFile = { facilitators: [] };
+r = await asKey('anyone@mismo.org:whatever');
+ok('no admin at all -> refused, not allowed through', r.statusCode!==200);

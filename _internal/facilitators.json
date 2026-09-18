@@ -1,8 +1,15 @@
 {
-  "admin": {
-    "name": "Perry Williams",
-    "email": "pwilliams@mba.org",
-    "hash": "pbkdf2$210000$304e0329bf866e46294b79928fb96c54$23fb09c69f91df663c341a9ce6f5d90928c90e8ed8c7b6af5301d428ffcee41e"
-  },
+  "admins": [
+    {
+      "name": "Perry Williams",
+      "email": "pwilliams@mba.org",
+      "hash": "pbkdf2$210000$304e0329bf866e46294b79928fb96c54$23fb09c69f91df663c341a9ce6f5d90928c90e8ed8c7b6af5301d428ffcee41e"
+    },
+    {
+      "name": "Jonna Critchley",
+      "email": "jcritchley@mismo.org",
+      "hash": "pbkdf2$210000$c7f711325c80dfdd5b013a297cdc5b34$f373ff22027d23ea58098732816bc980cdda109d1449936d9dcf5fb16d767689"
+    }
+  ],
   "facilitators": []
 }
