@@ -182,17 +182,7 @@
     text-transform:uppercase;
     color:var(--ink-soft);
   }
-  .sponsor-mark{
-    font-family:'Libre Franklin',sans-serif;
-    font-weight:700;
-    font-size:11px;
-    letter-spacing:0.06em;
-    background:var(--header-bg);
-    color:var(--header-text);
-    padding:3px 8px;
-    border-radius:4px;
-  }
-  /* An initiative in discovery has no chartered workgroup yet, so the tag is empty —
+    /* An initiative in discovery has no chartered workgroup yet, so the tag is empty —
      it was rendering as a bare coloured stub beside the domain line. Hidden for readers,
      but kept visible while the page is unlocked: the element is contenteditable, and
      display:none on an empty one would make it impossible to ever fill in. Unlocked it
@@ -245,13 +235,7 @@
   .lead-chip .name{font-weight:600;}
   .lead-chip .company{color:var(--ink-soft); font-size:11px;}
 
-  .masthead-right{
-    display:flex;
-    flex-direction:column;
-    align-items:flex-end;
-    gap:10px;
-  }
-  .back-to-hub{
+    .back-to-hub{
     font-family:'Libre Franklin',sans-serif; font-size:11px; font-weight:700;
     color:var(--brand-text); text-decoration:none;
     padding:7px 14px; border:1px solid var(--line); border-radius:999px; background:var(--card);
@@ -923,7 +907,6 @@
   <div class="masthead-inner">
     <div>
       <div class="eyebrow-row">
-        <span class="sponsor-mark">MISMO</span>
         <span class="workgroup-tag" contenteditable="true">Mortgage Compliance Dataset DWG</span>
         <span class="eyebrow" contenteditable="true">Compliance · Workgroup Dashboard</span>
       </div>
@@ -935,9 +918,6 @@
         <div class="lead-chip"><span class="role">Chair</span><span class="name" contenteditable="true">Sonya McCumber</span><span class="company" contenteditable="true">ComplianceEase, a SitusAMC Company</span></div>
         <div class="lead-chip"><span class="role">Vice-Chair</span><span class="name" contenteditable="true">Michael Jackman</span><span class="company" contenteditable="true">Asurity</span></div>
       </div>
-    </div>
-    <div class="masthead-right">
-      <span class="section-note mono">Draft v1 · not affiliated with Smartsheet</span>
     </div>
   </div>
 </div>
