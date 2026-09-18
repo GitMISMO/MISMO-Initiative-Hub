@@ -38,7 +38,7 @@
 
   /* The relay's function URL, e.g. https://abc123.lambda-url.us-east-1.on.aws
    * No trailing slash. Empty until the Lambda exists; saving explains that if so. */
-  var RELAY_URL = '';
+  var RELAY_URL = 'https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws';
 
   /* The relay serves more than one project, so every path is prefixed with this key.
    * It must match a key in the Lambda's PROJECTS variable. */
