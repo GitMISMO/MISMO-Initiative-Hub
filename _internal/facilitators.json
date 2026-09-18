@@ -1,4 +1,8 @@
 {
-  "admin": null,
+  "admin": {
+    "name": "Perry Williams",
+    "email": "pwilliams@mba.org",
+    "hash": "pbkdf2$210000$304e0329bf866e46294b79928fb96c54$23fb09c69f91df663c341a9ce6f5d90928c90e8ed8c7b6af5301d428ffcee41e"
+  },
   "facilitators": []
 }
