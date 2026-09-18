@@ -306,7 +306,11 @@
       { key: 'kickoff-set',  label: 'Kick off Set' },
       { key: 'launched',     label: 'Launched' }
     ],
-    LEADERSHIP_ROLES: ['Chair', 'Vice-Chair', 'Architecture Representative', 'Information Management Representative', 'Education Representative'],
+    /* 'Unsure' is last and is a real stored value, not a blank. A potential initiative
+       often has a name put forward before the seat is settled, and forcing a guess
+       records something that reads as decided. The validator accepts it like any other
+       role, so a record can be saved and revisited. */
+    LEADERSHIP_ROLES: ['Chair', 'Vice-Chair', 'Architecture Representative', 'Information Management Representative', 'Education Representative', 'Unsure'],
     ENGAGEMENTS: [
       { key: 'not-contacted', label: 'Not Contacted', color: '#8B94A7' },
       { key: 'declined',      label: 'Declined',      color: '#C2255C' },
