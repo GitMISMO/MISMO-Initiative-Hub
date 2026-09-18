@@ -1,0 +1,338 @@
+{
+  "dashboard": "mcd",
+  "rosterData": [
+    {
+      "type": "Regulator",
+      "org": "CSBS Multistate Mortgage Committee (MMC) & CFPB",
+      "status": "pilot-planned",
+      "primaryContact": "Kevin Byers",
+      "title": "",
+      "email": "",
+      "participants": "Kevin Byers (18/21)",
+      "notes": "Jeremy Windham (Alabama Banking Dept) is leading testing using loan data from 12 states to validate pass/fail scenarios and vendor consistency.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Regulator",
+      "org": "Alabama Banking Department",
+      "status": "pilot-planned",
+      "primaryContact": "Jeremy Windham",
+      "title": "",
+      "email": "",
+      "participants": "Jeremy Windham (12/21)",
+      "notes": "Named as one of the states showing strong support and commitment to the MCD.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Regulator",
+      "org": "California Dept. of Financial Protection and Innovation",
+      "status": "pilot-planned",
+      "primaryContact": "Sheila Oliver",
+      "title": "",
+      "email": "",
+      "participants": "No one met the 1/3 attendance threshold — closest: Sheila Oliver (2/21)",
+      "notes": "Named as a strong-support state, though the tracked contact has low meeting attendance.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Regulator",
+      "org": "D.C. Dept. of Insurance, Securities & Banking",
+      "status": "pilot-planned",
+      "primaryContact": "Aaron Clifton",
+      "title": "",
+      "email": "",
+      "participants": "Aaron Clifton (7/21)",
+      "notes": "Named as one of the states showing strong support and commitment to the MCD.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Lender (3rd Party LOS)",
+      "org": "DHI Mortgage Company",
+      "status": "pilot-planned",
+      "primaryContact": "John van der Horst",
+      "title": "",
+      "email": "",
+      "participants": "John van der Horst (8/21)",
+      "notes": "Lenders are supportive of the MCD but remain reliant on LOS providers, compliance vendors, and regulators.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Lender (3rd Party LOS)",
+      "org": "Veterans United Home Loans",
+      "status": "pilot-planned",
+      "primaryContact": "Paul Daviess",
+      "title": "",
+      "email": "",
+      "participants": "No one met the 1/3 attendance threshold — closest: Paul Daviess (6/21)",
+      "notes": "Same shared note: supportive, but dependent on LOS/compliance vendor readiness.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Lender (Proprietary LOS)",
+      "org": "Rocket Mortgage, LLC",
+      "status": "pilot-planned",
+      "primaryContact": "Amy Grodin",
+      "title": "",
+      "email": "",
+      "participants": "Amy Grodin (19/21), Nicholas Laudan (10/21)",
+      "notes": "Remains a committed supporter and is planning to implement.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Lender (Proprietary LOS)",
+      "org": "United Wholesale Mortgage",
+      "status": "pilot-planned",
+      "primaryContact": "Richard Collins",
+      "title": "",
+      "email": "",
+      "participants": "Richard Collins (15/21)",
+      "notes": "Not named in the source stakeholder table — added here from real meeting-tracker engagement.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "LOS Provider",
+      "org": "ICE Mortgage Technology",
+      "status": "pilot-planned",
+      "primaryContact": "Brian Early",
+      "title": "",
+      "email": "",
+      "participants": "Brian Early (19/21)",
+      "notes": "Developing an initial beta MCD export for the Encompass 26.2 release (mid-July); first release supports a single closed-loan export.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "LOS Provider",
+      "org": "Wilqo",
+      "status": "pilot-planned",
+      "primaryContact": "John Haring",
+      "title": "",
+      "email": "",
+      "participants": "John Haring (12/21)",
+      "notes": "Committed to supporting the MCD; developing a single-loan workflow and evaluating bulk vs. individual request support.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "LOS Provider",
+      "org": "Vesta",
+      "status": "not-planned",
+      "primaryContact": "Derek Steele-Wass",
+      "title": "",
+      "email": "",
+      "participants": "No one met the 1/3 attendance threshold — closest: Derek Steele-Wass (0/21)",
+      "notes": "Has not participated in discussions or committed to development, though has indicated the MCD would be easy to build.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "LOS Provider",
+      "org": "Byte",
+      "status": "not-planned",
+      "primaryContact": "",
+      "title": "",
+      "email": "",
+      "participants": "No roster data on file",
+      "notes": "Lacks commitment to implement; believes ComplianceEase will continue to cover what is needed to support the MCD.",
+      "roadblocks": "Byte still not planning to implement MCD",
+      "targetDate": ""
+    },
+    {
+      "type": "Compliance Vendor",
+      "org": "Asurity",
+      "status": "implemented",
+      "primaryContact": "Michael Jackman",
+      "title": "Workgroup Leader, MCD DWG",
+      "email": "",
+      "participants": "Michael Jackman (19/21), Karol Villavicencio (18/21)",
+      "notes": "Actively implementing. Asurity also sponsors the MCD DWG.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Compliance Vendor",
+      "org": "LendingPad",
+      "status": "implemented",
+      "primaryContact": "Frank Tuttle",
+      "title": "",
+      "email": "",
+      "participants": "Frank Tuttle (17/21)",
+      "notes": "Actively implementing.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Compliance Vendor",
+      "org": "Evolve Mortgage Services",
+      "status": "implemented",
+      "primaryContact": "Dan Netzer",
+      "title": "",
+      "email": "",
+      "participants": "Dan Netzer (14/21), Cathy Hunt (9/21)",
+      "notes": "Actively implementing.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Compliance Vendor",
+      "org": "ComplianceEase",
+      "status": "implemented",
+      "primaryContact": "",
+      "title": "",
+      "email": "",
+      "participants": "No roster data on file",
+      "notes": "Actively implementing; also continues to support the legacy LEF format until regulators stop accepting it.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Compliance Vendor",
+      "org": "Mavent (ICE)",
+      "status": "pilot-planned",
+      "primaryContact": "",
+      "title": "",
+      "email": "",
+      "participants": "No roster data on file",
+      "notes": "Confirmed plans to build ingestion and testing capability, but has not started due to other priorities.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Compliance Vendor",
+      "org": "Alpha7X",
+      "status": "implemented",
+      "primaryContact": "Lynn Calahan",
+      "title": "Chief Data Officer",
+      "email": "",
+      "participants": "Lynn Calahan (11/21 under Alpha7X — plus 1/21 under a separate \"Self-employed\" entry, see Manifest Check)",
+      "notes": "Sole architect of the MCD specification.",
+      "roadblocks": "",
+      "targetDate": ""
+    },
+    {
+      "type": "Third-Party Reviewer",
+      "org": "SitusAMC",
+      "status": "na",
+      "primaryContact": "Sonya McCumber",
+      "title": "Workgroup Leader, MCD DWG",
+      "email": "",
+      "participants": "Sonya McCumber (20/21), Genny Dillon (16/21)",
+      "notes": "Serves as third-party loan file reviewer.",
+      "roadblocks": "",
+      "targetDate": ""
+    }
+  ],
+  "laneData": {
+    "general": {
+      "goals": [],
+      "roadblocks": [],
+      "actions": []
+    },
+    "regulator": {
+      "goals": [],
+      "roadblocks": [],
+      "actions": []
+    },
+    "lender_3pl": {
+      "goals": [],
+      "roadblocks": [],
+      "actions": []
+    },
+    "lender_prop": {
+      "goals": [],
+      "roadblocks": [],
+      "actions": []
+    },
+    "los": {
+      "goals": [],
+      "roadblocks": [],
+      "actions": []
+    },
+    "compliance": {
+      "goals": [
+        "TEST"
+      ],
+      "roadblocks": [],
+      "actions": []
+    },
+    "reviewer": {
+      "goals": [],
+      "roadblocks": [],
+      "actions": []
+    }
+  },
+  "generic": {
+    "editable": {
+      "body::span::0": "Mortgage Compliance Dataset DWG",
+      "body::span::1": "Compliance · Workgroup Dashboard",
+      "body::h1::2": "Mortgage Compliance Dataset<span class=\"segment-tag\" contenteditable=\"true\">(MCD)</span>",
+      "body::span::3": "Erin Bittenbender",
+      "body::span::4": "MISMO",
+      "body::span::5": "Sonya McCumber",
+      "body::span::6": "ComplianceEase, a SitusAMC Company",
+      "body::span::7": "Michael Jackman",
+      "body::span::8": "Asurity",
+      "meeting-schedule::span::0": "Mortgage Compliance Dataset DWG",
+      "meeting-schedule::span::1": "1st &amp; 3rd Thursday of the month",
+      "meeting-schedule::span::2": "3–4 PM ET",
+      "overview::p::0": "The MCD is a standard set of loan data fields and delivery file format that mortgage lenders and independent mortgage banks provide to regulators for the loan-level review portion of regulatory compliance examinations. It's designed to replace the Loan Examination File (LEF).",
+      "overview::p::1": "Lenders and regulators can test a single loan or an entire portfolio against the MCD — lenders to cure defects before an exam, regulators to run the exam itself.",
+      "why-card::li::0": "<strong>Manual, inconsistent reviews slow examinations down.</strong> Regulators examine individual loans against consumer-protection rules (disclosures, ability-to-repay, points and fees, high-cost mortgages, and more) largely by hand, without a standard format to run technology against.",
+      "why-card::li::1": "<strong>Inconsistent formats break compliance technology.</strong> For automated review to work across the industry, data submissions need one common structure, fields, names, and enumerations — a shared language for regulators, lenders, and vendors.",
+      "why-card::li::2": "<strong>Lenders want to catch issues before the exam.</strong> The same standard that lets regulators run risk-based reviews lets lenders test their own portfolios and cure defects ahead of time.",
+      "overview::span::5": "MISMO, in partnership with the Conference of State Bank Supervisors (CSBS)",
+      "overview::span::6": "July 2022",
+      "overview::span::7": "To replace the inconsistent Loan Examination File (LEF) format with a standardized compliance dataset that lenders and regulators could test loans against consistently.",
+      "overview::span::8": "Published — Version 2.0",
+      "overview::span::9": "$47",
+      "deliverables-card::td::0": "MCD Enhancements <span class=\"mono\" style=\"font-size:10px; color:var(--ink-soft);\">WR2025_01</span>",
+      "deliverables-card::td::1": "Reference Model Changes – Part A <span class=\"mono\" style=\"font-size:10px; color:var(--signal-text);\">⚑ WR2022_12</span>",
+      "deliverables-card::td::2": "MCD – Part B <span class=\"mono\" style=\"font-size:10px; color:var(--signal-text);\">⚑ WR2022_12</span>",
+      "stakeholders::td::0": "Automated compliance testing to review a lender's loan portfolio and get accurate test results",
+      "stakeholders::td::1": "Spend less time preparing for and responding to exam requests",
+      "stakeholders::td::2": "Same benefit, plus direct control over building MCD export capability",
+      "stakeholders::td::3": "Single integration point for lender clients' MCD export needs",
+      "stakeholders::td::4": "Evaluate the MCD and generate consistent testing results across lenders",
+      "stakeholders::td::5": "Standardized file review across regulator and lender engagements"
+    },
+    "selects": {
+      "deliverables-card::select::0": "done",
+      "deliverables-card::select::1": "done",
+      "deliverables-card::select::2": "done",
+      "stakeholders::select::0": "Regulator",
+      "stakeholders::select::1": "star",
+      "stakeholders::select::2": "Driver",
+      "stakeholders::select::3": "Lender (3rd Party LOS)",
+      "stakeholders::select::4": "star",
+      "stakeholders::select::5": "Driver",
+      "stakeholders::select::6": "Lender (Proprietary LOS)",
+      "stakeholders::select::7": "star",
+      "stakeholders::select::8": "Driver",
+      "stakeholders::select::9": "LOS Provider",
+      "stakeholders::select::10": "line",
+      "stakeholders::select::11": "Implementer",
+      "stakeholders::select::12": "Compliance Vendor",
+      "stakeholders::select::13": "star",
+      "stakeholders::select::14": "Implementer",
+      "stakeholders::select::15": "Third-Party Reviewer",
+      "stakeholders::select::16": "line",
+      "stakeholders::select::17": "Implementer",
+      "addCompanyPopover::select::0": "Regulator"
+    },
+    "dates": {
+      "deliverables-card::input::0": "2025-12-11",
+      "deliverables-card::input::1": "2025-05-29",
+      "deliverables-card::input::2": "2024-10-17"
+    }
+  },
+  "savedBy": "Perry Williams",
+  "savedAt": "2026-09-18T20:37:31.841Z"
+}
