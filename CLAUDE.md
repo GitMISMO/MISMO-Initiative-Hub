@@ -377,6 +377,10 @@ Carried forward from earlier sessions, still outstanding as of this handoff:
 - TPA's Governance section leadership tag was left blank deliberately —
   workgroup hasn't started meeting yet, no real leadership to show.
 
+**Pre-existing:** the dashboards overflow horizontally at 390px. Confirmed by stashing
+current work and re-testing, so it is not from any recent change. Not yet traced to a
+specific element.
+
 ## What's next for this project
 
 The repository is the backend now, by decision: no new service or account.

@@ -1146,6 +1146,16 @@ silently; if a save cannot happen, the user must be told.
 
   .meeting-tile.sponsor-tile{align-items:flex-start;}
   .sponsor-tile-logo{height:34px; width:auto; max-width:100%; object-fit:contain; align-self:center; margin-top:6px; background:#fff; padding:6px 12px; border-radius:6px;}
+  /* MISMO-sponsored groups carry the wordmark itself, in two variants: the colour mark
+     on light, the white mark on dark. The single-file version needed a white chip behind
+     it so the blue mark stayed legible on a dark tile; with a white variant available
+     that chip is no longer needed and the mark sits directly on the tile. Third-party
+     sponsor logos keep the chip, since we cannot supply a variant for someone else's
+     brand. */
+  .sponsor-logo-white{display:none;}
+  html[data-theme="dark"] .sponsor-logo-colour{display:none;}
+  html[data-theme="dark"] .sponsor-logo-white{display:block;}
+  .sponsor-logo-colour, .sponsor-logo-white{background:transparent; padding:0; height:28px; margin-top:8px;}
   @media (max-width:900px){
     .meeting-banner{grid-template-columns:repeat(3, 1fr);}
     .meeting-banner-label{padding:12px 18px;}
@@ -1297,6 +1307,11 @@ silently; if a save cannot happen, the user must be told.
             <!-- Swap the logo file for the sponsor's own logo (upload it alongside this page
                  in the repo). If there's no distinct sponsor beyond MISMO itself, use
                  mismo-logo.png, matching the CCS/TPA pattern. -->
+            <!-- Third-party sponsor: one image, keeps the white chip behind it.
+                 MISMO-sponsored group: replace this line with the two-image pair so the
+                 mark follows the theme —
+                 <img src="mismo-logo-colour.png" alt="MISMO" class="sponsor-tile-logo sponsor-logo-colour">
+                 <img src="mismo-logo-white.png"  alt="MISMO" class="sponsor-tile-logo sponsor-logo-white"> -->
             <img src="{{SPONSOR_LOGO_FILENAME}}" alt="{{SPONSOR_NAME}}" class="sponsor-tile-logo">
           </div>
           <div class="meeting-tile">
