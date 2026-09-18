@@ -44,7 +44,7 @@
    * It must match a key in the Lambda's PROJECTS variable. */
   var PROJECT = 'hub';
 
-  var KEY_KEY = 'tools:hub:facilitator-key';   // localStorage: "Display Name:passcode"
+  var KEY_KEY = 'resources:hub:facilitator-key';   // localStorage: "Display Name:passcode"
 
   var cfg = { id: null, path: null };
   var currentSha = null;       // blob SHA of the file as we last read it; drives conflict detection

@@ -97,11 +97,11 @@ comments, and it's the same tradeoff already live on all four real dashboards
 - **Default theme is light.** A FOUC-prevention inline `<script>` sits at the
   very top of `<head>`, before any stylesheet, reading a per-dashboard
   localStorage key and setting `data-theme` before first paint.
-- **localStorage keys** (all `tools:hub:…`, see the namespacing rule below):
-  `tools:hub:<id>:theme` (theme preference — per-browser is correct for this),
-  `tools:hub:<id>:draft` (written only when a save could not reach the relay,
-  offered by the restore banner on next load), `tools:hub:theme`,
-  `tools:hub:calendar-filter`, and `tools:hub:facilitator-key` (the editor's
+- **localStorage keys** (all `resources:hub:…`, see the namespacing rule below):
+  `resources:hub:<id>:theme` (theme preference — per-browser is correct for this),
+  `resources:hub:<id>:draft` (written only when a save could not reach the relay,
+  offered by the restore banner on next load), `resources:hub:theme`,
+  `resources:hub:calendar-filter`, and `resources:hub:facilitator-key` (the editor's
   own `Display Name:passcode`). Renamed from the old unprefixed keys in Sept
   2026; done before the relay went live, so no drafts existed to orphan. The old `{id}-roster-data-v1` / `{id}-lane-data-v1`
   keys are gone; nothing reads them.
@@ -161,7 +161,7 @@ comments, and it's the same tradeoff already live on all four real dashboards
   - A save that fails must say so. The previous `window.storage` path failed
     silently on Pages and lost every edit for months. Never reintroduce a
     storage path that can fail without telling the user.
-- **Every browser-storage key is namespaced `tools:<app>:<name>`.** All MISMO
+- **Every browser-storage key is namespaced `resources:<app>:<name>`.** All MISMO
   tools are served from one host (`resources.mismo.org/<app>`), and browsers isolate
   storage by ORIGIN — scheme plus host, path does NOT count. So every app on
   that host shares one `localStorage`, one `IndexedDB` and one cookie jar. An
@@ -169,12 +169,14 @@ comments, and it's the same tradeoff already live on all four real dashboards
   one app's keys are readable by all the others. Namespacing does not create
   isolation — nothing can, on a shared origin — but it stops collisions and
   makes a careless `clear()` obviously wrong in review.
-  The `tools:` prefix stays `tools:` even though the host is now
-  `resources.mismo.org`. It namespaces the estate, not the URL — renaming it would
-  touch 47 references for no functional gain, and the host may be renamed again.
-  This app is `hub`: `tools:hub:facilitator-key`, `tools:hub:theme`,
-  `tools:hub:<dashboard>:draft`, `tools:hub:<dashboard>:theme`,
-  `tools:hub:calendar-filter`. A new app picks its own segment and never
+  The prefix is `resources:`, matching the product name rather than the hostname.
+  It was `tools:` until September 2026 and was renamed with the site. The window to
+  do that was the move to a new domain: browser storage is per-origin, so moving
+  from gitmismo.github.io to resources.mismo.org abandons the old storage anyway,
+  and renaming then cost one theme reset instead of two.
+  This app is `hub`: `resources:hub:facilitator-key`, `resources:hub:theme`,
+  `resources:hub:<dashboard>:draft`, `resources:hub:<dashboard>:theme`,
+  `resources:hub:calendar-filter`. A new app picks its own segment and never
   touches another's. Never call `localStorage.clear()`; remove your own keys by
   name. Anything genuinely secret does not belong in browser storage at all —
   the facilitator key is deliberately low-value and save-only for this reason.

@@ -11,7 +11,7 @@
   // delay first paint the way the full page script (loaded later) would.
   (function(){
     try {
-      var saved = localStorage.getItem('tools:hub:theme');
+      var saved = localStorage.getItem('resources:hub:theme');
       if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
     } catch (e) {}
   })();
@@ -295,7 +295,7 @@
   .pot-empty{background:var(--card); border:1px dashed var(--line); border-radius:var(--radius); padding:48px 24px; text-align:center; color:var(--ink-soft); font-size:13.5px;}
   .pot-empty strong{display:block; font-family:'Libre Franklin',sans-serif; font-size:16px; color:var(--ink); margin-bottom:6px;}
 </style>
-  <script src="dashboard-data.js?v=5728c53b79"></script>
+  <script src="dashboard-data.js?v=fb41434b2e"></script>
 </head>
 <body>
 
@@ -888,7 +888,7 @@
   }
   let savedTheme = 'light';
   try {
-    savedTheme = localStorage.getItem('tools:hub:theme') || 'light';
+    savedTheme = localStorage.getItem('resources:hub:theme') || 'light';
   } catch (e) {
     // Local storage unavailable — just default to light mode.
   }
@@ -899,7 +899,7 @@
     const next = current === 'dark' ? 'light' : 'dark';
     applyTheme(next);
     try {
-      localStorage.setItem('tools:hub:theme', next);
+      localStorage.setItem('resources:hub:theme', next);
     } catch (e) {
       // Local storage unavailable — the toggle still works, it just won't persist.
     }

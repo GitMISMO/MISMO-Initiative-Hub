@@ -11,7 +11,7 @@
   // delay first paint the way the full page script (loaded later) would.
   (function(){
     try {
-      var saved = localStorage.getItem('tools:hub:lbds:theme');
+      var saved = localStorage.getItem('resources:hub:lbds:theme');
       if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
     } catch (e) {}
   })();
@@ -912,7 +912,7 @@
     color:var(--ink-soft);
   }
 </style>
-  <script src="dashboard-data.js?v=5728c53b79"></script>
+  <script src="dashboard-data.js?v=fb41434b2e"></script>
 </head>
 <body>
 
@@ -1196,7 +1196,7 @@
   }
   let savedDashboardTheme = 'light';
   try {
-    savedDashboardTheme = localStorage.getItem('tools:hub:lbds:theme') || 'light';
+    savedDashboardTheme = localStorage.getItem('resources:hub:lbds:theme') || 'light';
   } catch (e) {
     // Local storage unavailable — just default to light.
   }
@@ -1207,7 +1207,7 @@
       const next = current === 'dark' ? 'light' : 'dark';
       applyDashboardTheme(next);
       try {
-        localStorage.setItem('tools:hub:lbds:theme', next);
+        localStorage.setItem('resources:hub:lbds:theme', next);
       } catch (e) {
         // Local storage unavailable — the toggle still works, it just won't persist.
       }
@@ -2254,7 +2254,7 @@
       if (!MismoStore.hasToken()) {
         if (!MismoStore.promptForToken() || !MismoStore.hasToken()) {
           label.textContent = 'Not saved';
-          try { localStorage.setItem('tools:hub:lbds:draft', JSON.stringify(snapshot)); } catch (e2) {}
+          try { localStorage.setItem('resources:hub:lbds:draft', JSON.stringify(snapshot)); } catch (e2) {}
           alert(MismoStore.explain('NO_TOKEN'));
           throw new Error('handled');
         }
@@ -2269,12 +2269,12 @@
         saveSnapshotBtn.classList.add('just-saved');
         label.textContent = 'Saved';
         // The commit is the record now, so a stale local draft would only be confusing.
-        try { localStorage.removeItem('tools:hub:lbds:draft'); } catch (e2) {}
+        try { localStorage.removeItem('resources:hub:lbds:draft'); } catch (e2) {}
         document.getElementById('restoreBanner').style.display = 'none';
       } else {
         // Keep the work somewhere. The restore banner picks this up on the next load,
         // so a failed save plus an accidental refresh doesn't lose an afternoon.
-        try { localStorage.setItem('tools:hub:lbds:draft', JSON.stringify(snapshot)); } catch (e2) {}
+        try { localStorage.setItem('resources:hub:lbds:draft', JSON.stringify(snapshot)); } catch (e2) {}
         label.textContent = 'Not saved';
         alert(MismoStore.explain(result.reason));
       }
@@ -2297,7 +2297,7 @@
   (function(){
     let savedSnapshotRaw;
     try {
-      savedSnapshotRaw = localStorage.getItem('tools:hub:lbds:draft');
+      savedSnapshotRaw = localStorage.getItem('resources:hub:lbds:draft');
     } catch (e) {
       return;
     }
@@ -2309,7 +2309,7 @@
     const banner = document.getElementById('restoreBanner');
     let savedSnapshotRaw;
     try {
-      savedSnapshotRaw = localStorage.getItem('tools:hub:lbds:draft');
+      savedSnapshotRaw = localStorage.getItem('resources:hub:lbds:draft');
     } catch (e) {
       alert('Could not read saved data — this browser may be blocking local storage.');
       return;
